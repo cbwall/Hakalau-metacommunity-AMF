@@ -182,7 +182,7 @@ sample$Host<- factor(sample$Host,levels=c("Metrosideros polymorpha", "Acacia koa
 #Write subsetted sample data as a dataframe
 sampledata = sample_data(data.frame(Transect=sample$Transect, HabitatType=sample$HabitatType,
                                     Plot = sample$Plot, lat = sample$lat, lon = sample$lon, 
-                                    TreeID= sample$TreeID, Host= sample$Host,
+                                    TreeID= sample$TreeID, Host= sample$Host, 
                                     Bearing= sample$Bearing, Distance= sample$Distance,
                                     xCoords= sample$xCoords, yCoords= sample$yCoords,
                                     SampleType=sample$SampleType,
@@ -195,6 +195,7 @@ sampledata = sample_data(data.frame(Transect=sample$Transect, HabitatType=sample
                                     Na.cation= sample$Na.cation, Longitude= sample$Longitude, 
                                     Latitude= sample$Latitude, stringsAsFactors = FALSE))
 row.names(sampledata) <- row.names(sample)
+
 #Change each file to the phyloseq format
 OTU = otu_table(haka_otu, taxa_are_rows = FALSE)
 physeq = phyloseq(OTU)
@@ -213,22 +214,23 @@ ESV_dataframe<-psmelt(ESV_rel_abund)
       #####################
 
 ###Phyloseq###
-
 #Plots and analyses
 par(mgp = c(3, 3, 0))
 
-spec_rich_host = plot_richness(haka_soil_physeq, x ="HabitatType", measures="Observed")  +
-  geom_boxplot(aes(fill=Host),size=0.6, outlier.alpha = 0.5) +  
-  theme(text=element_text(colour="black",size=10)) + 
+spec_rich_host = plot_richness(haka_soil_physeq, x ="Host", measures="Observed", color="Host")  +
+  geom_boxplot(col="black", aes(fill=Host), alpha=0.8 , lwd=0.5, outlier.colour = "gray50") +
+  scale_color_manual(name= "Host species", values=c("#D73027","#FC8D59","goldenrod","#008000","darkslategray3","#008B8B","#4575B4")) +
+  scale_fill_manual(name= "Host species", values=c("#D73027","#FC8D59","goldenrod","#008000","darkslategray3","#008B8B","#4575B4"))  + 
   xlab("Habitat Type") + ylab("AM fungal richness") + 
-  theme(axis.text.x=element_text(angle=0,hjust=0.5,colour="black",size=8, vjust=0.5)) +
+  theme(axis.text.x=element_blank()) +
   theme(axis.text.y=element_text(colour="black",size=8)) +
-  scale_y_continuous(breaks=seq(0,80,by=10),limits=c(0,80)) +
-  scale_fill_manual(values=c("#D73027","#FC8D59","#FEE090","#008000","#E0F3F8","#008B8B","#4575B4")) +
+  scale_y_continuous(breaks=seq(0,75,by=10),limits=c(0,75)) +
   theme(panel.border = element_blank(), panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
         panel.background=element_blank()) +
-  theme(strip.text.x=element_text(size=8,face="bold"),strip.background = element_rect(fill="white")) +
+  facet_wrap(~HabitatType) +
+  theme(panel.spacing = unit(2, "lines")) +
+  theme(strip.text.x=element_text(size=10,face="bold"),strip.background = element_rect(fill="gray90")) +
   theme(legend.text = element_text(face="italic")) 
 
 plot(spec_rich_host)
@@ -261,13 +263,13 @@ host_spec_rich_mc_letters
 
 
 ##By habitat type alone
-spec_rich_hab = plot_richness(haka_soil_physeq, x ="Plot", measures="Observed") +
-  geom_boxplot(aes(fill=HabitatType),size=0.6, outlier.alpha = 0.5) +  
-  geom_jitter(shape=21,aes(fill=HabitatType)) +
-  scale_fill_manual(values=c("#336B87","#88A550")) +
-  ylim(0,80) + 
+spec_rich_hab = plot_richness(haka_soil_physeq, x ="Plot", measures="Observed", color="HabitatType") +
+  geom_boxplot(col="black", aes(fill=HabitatType), alpha=0.8 , lwd=0.5) + 
+  scale_color_manual(name= "Habitat Type", values=c("#336B87","#88A550")) +
+  scale_fill_manual(name= "Habitat Type", values=c("#336B87","#88A550")) +
+  ylim(0,70) + 
   theme(text=element_text(colour="black",size=10)) + 
-  ylab("AM fungal richness") + xlab("Species x Habitats") +
+  ylab("AM fungal richness") + xlab("Habitat Type Plots") +
   theme(axis.text.x=element_text(angle=0,hjust=0.5, vjust=0.5,colour="black",size=8)) +
   theme(axis.text.y=element_text(colour="black",size=8)) +
   theme(panel.border = element_blank(), panel.grid.major = element_blank(),
