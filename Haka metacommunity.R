@@ -11,47 +11,55 @@
 # FYI all code running from R project, no "setwd()" needed; reference folders of interest in project wd
 
 
-install.packages("BiocManager")
-BiocManager::install(c("multtest","phyloseq","rhdf5","ggplot2","colorspace","stringi"))
+###### ###### ###### ###### 
+########## packages
+###### ###### ###### ###### 
+
+if (!require("pacman")) install.packages("pacman") # for rapid install if not in library
+if (!require("BiocManager")) install.packages("BiocManager") # for buoinformatic packages
+if (!require("devtools")) install.packages("devtools") # for developement tools
+
+devtools::install_github('oswaldosantos/ggsn')
+
+pacman::p_load("multtest","phyloseq","rhdf5","ggplot2","colorspace","stringi", "geosphere", 
+               "ggplot2", "ggmap", "dplyr", "gridExtra", "geosphere", "sf", "raster", "spData",
+               "tmap", "leaflet", "mapview", "shiny", "RgoogleMaps", "devtools", "ggsn", "vegan", "multcomp",
+               "dplyr", "grid", "scales", "gridExtra", "emmeans", "multcompView", "ggpubr", "Rmisc", "purr",
+               "RVAideMemoire", "RColorBrewer")
+
 
 ##########################################################################
 ### Genearate MAPS of Hakalau showing habitat types and sampling plots ###
 ##########################################################################
-library(geosphere);library("ggplot2");library("ggmap"); library("dplyr")
-install.packages("gridExtra");library("gridExtra")
 
-install.packages("geosphere");library("geosphere")
-install.packages("sf");library(sf)
-install.packages("raster");library(raster)
-install.packages("spData");library(spData)
 
-library(tmap)    # for static and interactive maps
-library(leaflet) # for interactive maps
-library(mapview) # for interactive maps
-library(shiny) 
-devtools::install_github('oswaldosantos/ggsn');library(ggsn)
+# Load API key (confidential)
+API.key<-read.csv("data/API_Egan.csv")
+API.key<-API.key[1,1]
 
-register_google(key="AIzaSyDSi5MoN9-VJOwyEQ1NPFF0mxgAvkGYAc0")
+register_google(key=API.key)
 hi_map<-get_map(location=c(-157,20.5),zoom=7,maptype="terrain",color="bw")
 hi_map_for_man <- ggmap(hi_map) +
-  geom_point(aes(x = -155.320, y = 19.83),pch=23,colour="black",fill="red", size = 7, stroke=2) +
+  geom_point(aes(x = -155.320, y = 19.83),pch=23,colour="black",fill="red", size = 2, stroke=0.5) +
   xlab("Longitude") + ylab("Latitude") +
-  theme(axis.text=element_text(colour="black",size=15)) +
-  theme(axis.title=element_text(colour="black",size=17))
+  theme(axis.text=element_text(colour="black",size=8)) +
+  theme(axis.title=element_text(colour="black",size=8))
 plot(hi_map_for_man)
-ggsave("figures/hi_map.tiff",width= 17,height=15,limitsize=FALSE,plot=hi_map_for_man)
+ggsave("figures/hi_map.tiff",width= 6,height=5, limitsize=TRUE, plot=hi_map_for_man)
 
 
 hakalau_map_zoom <-get_map(location=c(-155.320,19.83),zoom=14,maptype="satellite",color="bw")
 haka_map <- ggmap(hakalau_map_zoom) +
   xlab("Longitude") + ylab("Latitude") +
-  theme(axis.text=element_text(colour="black",size=15)) +
-  theme(axis.title=element_text(colour="black",size=17))
+  theme(axis.text=element_text(colour="black",size=8)) +
+  theme(axis.title=element_text(colour="black",size=8))
 plot(haka_map)
+
 
    ##########################
    ####   Haka hab types ####
    ##########################
+
 haka_hab_types <-read.csv("data/haka_big_transect_data.csv", header=TRUE, row.names=1)
 haka_hab_types$NewHabType<- factor(haka_hab_types$NewHabType,levels=c("Open pasture","Koa + Grass","Koa + Understory",
                                                            "Restored ohia","Remnant koa forest",
@@ -66,56 +74,61 @@ hap_types_base <- haka_map +
 plot(hap_types_base)
 
 hab_types_plot <- haka_map +
-  geom_point(data=haka_hab_types,aes(x=Longitude,y=Latitude,fill=NewHabType),pch=21,stroke=1,colour="white",size=3) +
+  geom_point(data=haka_hab_types,aes(x=Longitude,y=Latitude,fill=NewHabType),pch=21,stroke=0.3,colour="white",size=2) +
   scale_fill_manual(values=c("#F7AF51","#97D8E5","#1C84B5","#336B87","#88A550","dark green")) +
-  theme(legend.text=element_text(size=15),legend.title = element_text(size=17)) +
+  theme(legend.text=element_text(size=6),legend.title = element_text(size=8)) +
   xlab("Longitude") + ylab("Latitude") +
-  theme(axis.text=element_text(colour="black",size=15)) +
-  theme(axis.title=element_text(colour="black",size=17)) +
+  theme(axis.text=element_text(colour="black",size=8)) +
+  theme(axis.title=element_text(colour="black",size=8)) +
   ggsn::scalebar(x.min=-155.345, x.max=-155.305, y.min=19.80, y.max=19.85, dist=1, dist_unit="km", transform=TRUE,
            st.bottom=FALSE,model="WGS84",st.color="white")
   
 plot(hab_types_plot)
-ggsave("figures/Haka_hab_types.tiff",width= 17,height=15,limitsize=FALSE,plot=hab_types_plot)
+ggsave("figures/Haka_hab_types.tiff",width= 6,height=5,plot=hab_types_plot)
 
 hab_types_plot_no_legend <- haka_map +
-  geom_point(data=haka_hab_types,aes(x=Longitude,y=Latitude,fill=NewHabType),pch=21,stroke=1,colour="white",size=4) +
+  geom_point(data=haka_hab_types,aes(x=Longitude,y=Latitude,fill=NewHabType),pch=21,stroke=0.3,colour="white",size=2) +
   scale_fill_manual(values=c("#F7AF51","#97D8E5","#1C84B5","#336B87","#88A550","dark green")) +
   theme(legend.position="none") +
   xlab("Longitude") + ylab("Latitude") +
-  theme(axis.text=element_text(colour="black",size=20)) +
-  theme(axis.title=element_text(colour="black",size=25)) +
+  theme(axis.text=element_text(colour="black",size=8)) +
+  theme(axis.title=element_text(colour="black",size=8)) +
   ggsn::scalebar(x.min=-155.345, x.max=-155.305, y.min=19.80, y.max=19.85, dist=1, dist_unit="km", transform=TRUE,
            st.bottom=FALSE,model="WGS84",st.color="white") 
 
 plot(hab_types_plot_no_legend)
-ggsave("figures/Haka_hab_types_no_legend.tiff",width= 17,height=15,limitsize=FALSE,plot=hab_types_plot_no_legend)
+ggsave("figures/Haka_hab_types_no_legend.tiff",width= 6,height=5,plot=hab_types_plot_no_legend)
       
+
+
       ##########################
       ####   Plot locations ####
       ##########################
+
 haka_metadata <-read.csv("data/haka_soil_metadata.csv", header=TRUE, row.names=1)
 haka_metadata$HabitaType <- factor(haka_metadata$HabitatType,levels=c("Restored Forest","Remnant Forest"),
                                    labels=c("Restored Forest,Remnant Forest"))
 sampling_plots <- ggmap(hakalau_map_zoom) + 
-  geom_point(data=haka_metadata,aes(x=lon,y=lat,fill=HabitatType),pch=21, stroke=1,colour="white",size=4) +
+  geom_point(data=haka_metadata,aes(x=lon,y=lat,fill=HabitatType),pch=21, stroke=0.3,colour="white",size=3) +
   scale_fill_manual(values=c("#88A550","#336B87")) +
   theme(legend.position="none") +
   xlab("Longitude") + ylab("Latitude") +
-  theme(axis.text=element_text(colour="black",size=20)) +
-  theme(axis.title=element_text(colour="black",size=25)) +
+  theme(axis.text=element_text(colour="black",size=8)) +
+  theme(axis.title=element_text(colour="black",size=8)) +
   ggsn::scalebar(x.min=-155.345, x.max=-155.305, y.min=19.80, y.max=19.85, dist=1, dist_unit="km", transform=TRUE,
            st.bottom=FALSE,model="WGS84",st.color="white") 
 
 plot(sampling_plots)
-ggsave("figures/Sampling_plots.tiff",width= 17,height=15,limitsize=FALSE,plot=sampling_plots)
+ggsave("figures/Sampling_plots.tiff", width= 6, height=5, plot=sampling_plots)
   
+
 
          ##############################################################
          #### Calculate lat and lon of each sample using geosphere ####
          ##############################################################
+
 ## GPS coordinates were only taken for focal trees (denoted by bearing = 0, and distance = 0 in metadata). 
-#Need to calculate lat and lon for all samples to do spatial/metacommunity analysis
+## Need to calculate lat and lon for all samples to do spatial/metacommunity analysis
 p <- as.matrix(cbind(haka_metadata$lon,haka_metadata$lat))
 new_lat_lon <- as.data.frame(destPoint(p,haka_metadata$Bearing,haka_metadata$Distance))
 colnames(new_lat_lon) <- c("Longitude","Latitude")
@@ -139,24 +152,21 @@ haka_dists <- lower.tri(geog_dists_m)
 #####################
 ### SEQUENCE DATA ###
 #####################
-install.packages("BiocManager")
-BiocManager::install(c("multtest","phyloseq","rhdf5","ggplot2","colorspace","stringi","Rcpp"))
-
-library(ggplot2); library(phyloseq);library(vegan);library(multcomp);library(dplyr);library(grid);library(scales)
-require(gridExtra); library(emmeans);library(multcompView); library(ggpubr); library(Rmisc); library(RColorBrewer)
-library(purrr); library(RVAideMemoire)
 
    ###################################
    ####Import files and pre-process###
    ###################################
+
 #Import files generated in QIIME
 otu <- as.matrix(read.csv("data/haka_soil_ESV_table.csv", header = TRUE,row.names = 1))
 haka_otu <- t(otu)
 taxmat <- as.matrix(read.csv("data/haka_soil_taxonomy.csv", header = TRUE,row.names = 1))
 sample <- haka_meta
 all.equal(rownames(haka_otu), rownames(sample))
+
 #Subset sample file to contain only the same rows as the otu file. Samples have been filtered out in
 #QIIME for various reasons (too few reads, no Glom hits etc.)
+
 #First create a vector of otu file rownames and call it "keep"
 rows_to_keep<-rownames(haka_otu)
 
@@ -197,28 +207,35 @@ ESV_rel_abund <- transform_sample_counts(haka_soil_physeq,function(x)x/sum(x))
 #Melt phyloseq object to make a dataframe for ggplot and bipartite
 ESV_dataframe<-psmelt(ESV_rel_abund)
 
+
       #####################
       #### SPECIES RICH ###
       #####################
+
 ###Phyloseq###
+
 #Plots and analyses
+par(mgp = c(3, 3, 0))
+
 spec_rich_host = plot_richness(haka_soil_physeq, x ="HabitatType", measures="Observed")  +
-  geom_boxplot(aes(fill=Host),size=0.75, outlier.alpha = 0.5) +  
-  theme(text=element_text(colour="black",size=15)) + 
+  geom_boxplot(aes(fill=Host),size=0.6, outlier.alpha = 0.5) +  
+  theme(text=element_text(colour="black",size=10)) + 
   xlab("Habitat Type") + ylab("AM fungal richness") + 
-  theme(axis.text.x=element_text(angle=45,hjust=1,colour="black",size=15,vjust=1)) +
-  theme(axis.text.y=element_text(colour="black",size=15)) +
-  scale_y_continuous(breaks=seq(0,45,by=10),limits=c(0,45)) +
+  theme(axis.text.x=element_text(angle=0,hjust=0.5,colour="black",size=8, vjust=0.5)) +
+  theme(axis.text.y=element_text(colour="black",size=8)) +
+  scale_y_continuous(breaks=seq(0,80,by=10),limits=c(0,80)) +
   scale_fill_manual(values=c("#D73027","#FC8D59","#FEE090","#008000","#E0F3F8","#008B8B","#4575B4")) +
   theme(panel.border = element_blank(), panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
         panel.background=element_blank()) +
-  theme(strip.text.x=element_text(size=20,face="bold"),strip.background = element_rect(fill="white")) +
+  theme(strip.text.x=element_text(size=8,face="bold"),strip.background = element_rect(fill="white")) +
   theme(legend.text = element_text(face="italic")) 
 
 plot(spec_rich_host)
-ggsave("figures/host_spec_rich.tiff", 
-       plot = spec_rich_host,width=7,height=6)
+ggsave("figures/host_spec_rich.tiff", plot = spec_rich_host, width=7,height=5)
+
+
+
 
 #GLM with poisson error distribution to test for differences in Species richness in roots and soil 
 #Large GLM 
@@ -227,86 +244,119 @@ par(mfrow = c(2, 2))
 plot(host_glm1)
 chi.anova<-anova(host_glm1,test="Chisq")
 chi.anova
+
 #Create a unique level for every combination of site and treatment to do a post-hoc test on
 root_metadata$Hab.by.Host<- interaction(root_metadata$HabitatType,root_metadata$Host)
 host_glm2 <- glm(spec_rich$Observed ~ Hab.by.Host, data=root_metadata, family = poisson(link="log"))
+
 #Calculate EMM on interactions
 host_spec_rich_emmeans <- emmeans(host_glm2, specs="Hab.by.Host")
 host_spec_rich_emmeans
 host_spec_rich_posthoc.pairs = pairs(host_spec_rich_emmeans)
 host_spec_rich_posthoc.pairs
+
 #Create letters for interaction differences
 host_spec_rich_mc_letters<-cld(host_spec_rich_emmeans,Letters="abcdefg")
 host_spec_rich_mc_letters
 
+
 ##By habitat type alone
 spec_rich_hab = plot_richness(haka_soil_physeq, x ="Plot", measures="Observed") +
-  geom_boxplot(aes(fill=HabitatType),size=0.75, outlier.alpha = 0.5) +  
+  geom_boxplot(aes(fill=HabitatType),size=0.6, outlier.alpha = 0.5) +  
   geom_jitter(shape=21,aes(fill=HabitatType)) +
   scale_fill_manual(values=c("#336B87","#88A550")) +
-  ylim(0,45) + 
-  theme(text=element_text(colour="black",size=15)) + 
-  ylab("AM fungal richness") + xlab("") +
-  theme(axis.text.x=element_text(angle=45,hjust=1,colour="black",size=15)) +
-  theme(axis.text.y=element_text(colour="black",size=15)) +
+  ylim(0,80) + 
+  theme(text=element_text(colour="black",size=10)) + 
+  ylab("AM fungal richness") + xlab("Species x Habitats") +
+  theme(axis.text.x=element_text(angle=0,hjust=0.5, vjust=0.5,colour="black",size=8)) +
+  theme(axis.text.y=element_text(colour="black",size=8)) +
   theme(panel.border = element_blank(), panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
         panel.background=element_blank()) +
   facet_wrap(~SampleType) +
-  theme(strip.text.x=element_text(size=20,face="bold"),strip.background = element_rect(fill="white")) 
+  theme(strip.text.x=element_text(size=8,face="bold"),strip.background = element_rect(fill="white")) 
 
 plot(spec_rich_hab)
-ggsave("figures/species_richness_by_plot.tiff", 
-       plot = spec_rich_hab, width=10,height=6)
+ggsave("figures/species_richness_by_plot.tiff", plot = spec_rich_hab, width=6,height=5)
+
+
+
          ######################
          ### Beta Diversity ###
          ######################
+
 ###Phyloseq###
 #Bray plot
 bc_dist = as.matrix((vegdist(haka_otu, "bray")))
 NMDS = metaMDS(bc_dist)
 NMDS1=NMDS$points[,1]
 NMDS2=NMDS$points[,2]
-NMDS.plot=data.frame(NMDS1=NMDS1,NMDS2=NMDS2, Host=sample$Host, 
+NMDS.plot.df=data.frame(NMDS1=NMDS1,NMDS2=NMDS2, Host=sample$Host, 
                      HabitatType=sample$HabitatType,Plot=sample$Plot)
+NMDS.plot.df$Sp.Hab<-interaction(NMDS.plot.df$Host, NMDS.plot.df$HabitatType)
 
-set.seed(605)
-NMDS_hab_plot = ggplot(NMDS.plot, aes(x=NMDS1,y=NMDS2, col=HabitatType, shape=HabitatType)) +
-  geom_point(size=3, stroke=3) +
-  scale_color_manual(values=c("#88A550","#336B87")) +
-  scale_shape_manual(values=c(21,23)) +
-  stat_ellipse(size=2) +
-  theme(axis.text.x=element_text(colour="black",size=17)) +
-  theme(axis.text.y=element_text(colour="black",size=17)) +
-  theme(axis.title=element_text(colour="black",size=20)) +
-  theme(panel.border = element_rect(fill=NA),axis.line = element_line(colour = "black"),
-        panel.background=element_blank()) +
-  theme(strip.text.x=element_text(size=20,face="bold"),strip.background = element_rect(fill="white")) +
-  theme(legend.text=element_text(size=20)) +
-  theme(legend.title=element_text(size=20,face='bold')) 
+NMDS.col<- c("#88A550","#336B87") # colors
+Habitats<- NMDS.plot.df$HabitatType # habitat levels
+groups.sp<-c("coral", "seagreen", "mediumpurple", "goldenrod", "dodgerblue", "gray50", "navajowhite2")
+groups.hab<-c("#88A550","#336B87")
 
-plot(NMDS_hab_plot)
-ggsave("figures/NMDS_hab_plot_no_env_data.tiff",width= 17,height=15,limitsize=FALSE,plot=NMDS_hab_plot)
 
-set.seed(605)
+### make points semitransparent
+# green
+col2rgb("#88A550"); grn.60<-rgb(136, 165, 80, max=255, alpha=170)
+# blue
+col2rgb("#336B87"); blu.60<-rgb(51, 107, 135, max=255, alpha=170)
+Hab.col<-c(grn.60, blu.60)
+
+##### PLOTS
+
+###### NMDS plot by Species
+species_plot<-ordiplot(NMDS, type="n", main=substitute(paste("Species NMDS")), cex.main=1, display="sites", xlim=c(-0.25, 0.8), cex.lab=0.8, cex.axis=0.8)
+abline(h = 0, lty = "dotted")
+abline(v = 0, lty = "dotted")
+points(NMDS, "sites", cex=0.8, pch=16, col=groups.sp[NMDS.plot.df$Host])
+ordihull(NMDS, groups=NMDS.plot.df$Host, draw="polygon", alpha=20, col=groups.sp, border=groups.sp)
+#ordiellipse(NMDS, groups=NMDS.plot.df$Host, draw="polygon", kind="sd", alpha=20, conf=0.95, col=groups.sp, border=groups.sp)
+legend("topright", legend=levels(NMDS.plot.df$Host),  text.font=3, cex=1, pch=16, col=groups.sp, pt.cex=1, bty="n")
+
+dev.copy(pdf, "figures/species.NMDS.pdf", height=8, width=8)
+dev.off() 
+
+
+###### NMDS plot by Habitat
+hab_plot<-ordiplot(NMDS, type="n", main=substitute(paste("Habitat NMDS")), cex.main=1, display="sites", xlim=c(-0.25, 0.8), cex.lab=0.8, cex.axis=0.8)
+abline(h = 0, lty = "dotted")
+abline(v = 0, lty = "dotted")
+points(NMDS, "sites", cex=0.8, pch=16, col=Hab.col[Habitats])
+ordiellipse(NMDS, groups=Habitats, kind="sd", draw="polygon", conf=0.95, alpha=30, col=groups.hab, border=groups.hab)
+legend("topright", legend=levels(Habitats), cex=1, pch=16, col=groups.hab, pt.cex=1, bty="n")
+
+dev.copy(pdf, "figures/habitat.NMDS.pdf", height=8, width=8)
+dev.off() 
+
+
+###### NMDS plot of Species x Habitat
 NMDS_host_plot = ggplot(NMDS.plot, aes(x=NMDS1,y=NMDS2,shape=HabitatType)) +
-  geom_point(size=4, stroke=3, aes(fill=HabitatType,colour=Host)) +
+  geom_point(size=1.5, stroke=1, alpha=0.7, aes(fill=HabitatType,colour=Host)) +
   scale_fill_manual(values=c("black","white")) +
-  scale_shape_manual(values=c(21,23)) +
-  stat_ellipse(size=2,alpha=0.75,aes(color=Host,linetype=HabitatType),type='t') +
+  scale_shape_manual(values=c(16,16)) +
+  stat_ellipse(size=0.8,alpha=0.75,aes(color=Host,linetype=HabitatType),type='t') +
   scale_linetype_manual(values=c(1,6)) +
   scale_color_manual(values=c("#D73027","#FC8D59","#FEE090","#008000","#E0F3F8","#008B8B","#4575B4")) +
-  theme(axis.text.x=element_text(colour="black",size=17)) +
-  theme(axis.text.y=element_text(colour="black",size=17)) +
-  theme(axis.title=element_text(colour="black",size=20)) +
-  theme(panel.border = element_rect(fill=NA),axis.line = element_line(colour = "black"),
+  theme(axis.text.x=element_text(colour="black",size=10)) +
+  theme(axis.text.y=element_text(colour="black",size=10)) +
+  theme(axis.title=element_text(colour="black",size=10)) +
+  theme(panel.border = element_rect(fill=NA),
         panel.background=element_blank()) +
-  theme(strip.text.x=element_text(size=20,face="bold"),strip.background = element_rect(fill="white")) +
-  theme(legend.text=element_text(size=20,face='italic')) +
-  theme(legend.title=element_text(size=20,face='bold')) 
+  theme(strip.text.x=element_text(size=10,face="bold"),strip.background = element_rect(fill=NA)) +
+  theme(legend.text=element_text(size=8, face='italic')) +
+  theme(legend.title=element_text(size=8,face='bold')) 
 
 plot(NMDS_host_plot)
-ggsave("figures/NMDS_host_plot.tiff",width= 20,height=15,limitsize=FALSE,plot=NMDS_host_plot)
+ggsave("figures/NMDS_host_plot.tiff",width= 8,height=8, plot=NMDS_host_plot)
+
+
+##### ##### ##### ##### ##### ##### #####
 
 #Examination of environmental data
 environmental_data <- read.csv("data/haka_chemistry.csv", header=TRUE, row.names=1)
@@ -316,35 +366,26 @@ environmental_data<-environmental_data[rows_to_keep,]
 all.equal(rownames(haka_otu), rownames(environmental_data))
 
 #Fit environmental vectors to ordination to see which environmental variables are correlated with the ordination
-fit <- envfit(NMDS,environmental_data,na.rm=TRUE)
-arrow<-data.frame(fit$vectors$arrows,R=fit$vectors$r, P=fit$vectors$pvals)
-arrow$FG <- rownames(arrow)
-arrow.p <- dplyr::filter(arrow, P <=0.05)
-label_map <- aes(x=1.3*(NMDS1/2),y=1.3*(NMDS2/2),shape=NULL,color=NULL,label=FG)
 
-arrow.p$FG<- as.factor(arrow.p$FG)
-arrow.p$FG<- c("OM (%)","Total N", "K", "Mg", "Ca", "S","pH", "H(meq/100g)", "CEC(meq/100g)", "K+", 
-               "Mg+2", "Ca+2", "H+", "Na+")
+colnames(environmental_data)<-c("OM(%)","Total N", "P", "K", "Mg", "Ca", "Na", "S","pH", "H(meq/100g)", "CEC(meq/100g)", "K+", 
+                                "Mg+2", "Ca+2", "H+", "Na+")
 
-environmental_plot = ggplot(NMDS.plot, aes(x=NMDS1,y=NMDS2)) +
-  geom_point(size=3, stroke=3, aes(color=HabitatType,shape=HabitatType),position=position_jitter(0.1)) +
-  scale_color_manual(values=c("#88A550","#336B87")) +
-  scale_shape_manual(values=c(21,23)) +
-  stat_ellipse(aes(color=HabitatType,lty=HabitatType), type='t',size =2)+
-  theme(axis.text.x=element_text(colour="black",size=17)) +
-  theme(axis.text.y=element_text(colour="black",size=17)) +
-  theme(axis.title=element_text(colour="black",size=20)) +
-  theme(panel.border = element_rect(fill=NA),axis.line = element_line(colour = "black"),
-        panel.background=element_blank()) +
-  theme(strip.text.x=element_text(size=20,face="bold"),strip.background = element_rect(fill="white")) +
-  theme(legend.text=element_text(size=20)) +
-  theme(legend.title=element_text(size=20,face='bold')) +
-  geom_segment(data=arrow.p,size=2,aes(x=0,y=0,xend=NMDS1/2,yend=NMDS2/2,shape=NULL),
-               arrow=arrow(length=unit(3,"cm")*arrow.p$R),colour="black") +
-  geom_text(mapping=label_map,data=arrow.p,show.legend=FALSE,size=10)
+fit.env <- envfit(NMDS, environmental_data, na.rm=TRUE)
 
-plot(environmental_plot)
-ggsave("data/NMDS_environmental_plot.tiff",width= 20,height=15,limitsize=FALSE,plot=environmental_plot)
+######### make plot by habitat with vectors for environment
+environm_plot<-ordiplot(NMDS, type="n", main=substitute(paste("Habitat NMDS")), cex.main=1, display="sites", xlim=c(-0.25, 0.8), cex.lab=0.8, cex.axis=0.8)
+abline(h = 0, lty = "dotted")
+abline(v = 0, lty = "dotted")
+points(NMDS, "sites", cex=0.8, pch=16, col=Hab.env.col[Habitats])
+ordihull(NMDS, groups=Habitats, draw="polygon", alpha=20, col=groups.hab, border=groups.hab)
+legend("topright", legend=levels(Habitats), cex=1, pch=16, col=groups.hab, pt.cex=1, bty="n")
+par.new=T
+plot(fit.env, col="black", p.max=0.05, cex=0.9, lwd=1)
+
+dev.copy(pdf, "figures/environm.NMDS.pdf", height=8, width=8)
+dev.off() 
+
+##### combined plot
 
 
 
