@@ -23,9 +23,9 @@ devtools::install_github('oswaldosantos/ggsn')
 
 pacman::p_load("multtest","phyloseq","rhdf5","ggplot2","colorspace","stringi", "geosphere", 
                "ggplot2", "ggmap", "dplyr", "gridExtra", "geosphere", "sf", "raster", "spData",
-               "tmap", "leaflet", "mapview", "shiny", "RgoogleMaps", "devtools", "ggsn", "vegan", "multcomp",
+               "tmap", "leaflet", "mapview", "shiny", "fossil", "RgoogleMaps", "devtools", "ggsn", "vegan", "multcomp",
                "dplyr", "grid", "scales", "gridExtra", "emmeans", "multcompView", "ggpubr", "Rmisc", "purr",
-               "RVAideMemoire", "RColorBrewer")
+               "RVAideMemoire", "RColorBrewer", "vegan")
 
 
 ##########################################################################
@@ -179,6 +179,7 @@ sample$Host<- factor(sample$Host,levels=c("Metrosideros polymorpha", "Acacia koa
                                           "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"),
                      labels=c("Metrosideros polymorpha", "Acacia koa", "Coprosma rhynchocarpa", 
                               "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"))
+
 #Write subsetted sample data as a dataframe
 sampledata = sample_data(data.frame(Transect=sample$Transect, HabitatType=sample$HabitatType,
                                     Plot = sample$Plot, lat = sample$lat, lon = sample$lon, 
@@ -194,7 +195,11 @@ sampledata = sample_data(data.frame(Transect=sample$Transect, HabitatType=sample
                                     Ca.cation= sample$Ca.cation, H.cation= sample$H.cation,
                                     Na.cation= sample$Na.cation, Longitude= sample$Longitude, 
                                     Latitude= sample$Latitude, stringsAsFactors = FALSE))
+
+sample$Hab.by.hot<-interaction(sample$HabitatType, sample$Host)
+
 row.names(sampledata) <- row.names(sample)
+
 
 #Change each file to the phyloseq format
 OTU = otu_table(haka_otu, taxa_are_rows = FALSE)
@@ -235,7 +240,6 @@ spec_rich_host = plot_richness(haka_soil_physeq, x ="Host", measures="Observed",
 
 plot(spec_rich_host)
 ggsave("figures/host_spec_rich.tiff", plot = spec_rich_host, width=7,height=5)
-
 
 
 
@@ -387,23 +391,82 @@ plot(fit.env, col="black", p.max=0.05, cex=0.9, lwd=1)
 dev.copy(pdf, "figures/environm.NMDS.pdf", height=8, width=8)
 dev.off() 
 
-##### combined plot
 
+##### breakup data
+
+######## Only RO site
+ROdat<-t(otu[,grep("^RO", colnames(otu))]) # transposed data with only RO
+samples.RO<-sample[grep("^RO", rownames(sample)),] # only rows with "RO"
+all.equal(rownames(ROdat), rownames(samples.RO)) # rows match
+
+
+RO_dist = as.matrix((vegdist(ROdat, "bray")))
+NMDS = metaMDS(RO_dist)
+NMDS1=NMDS$points[,1]
+NMDS2=NMDS$points[,2]
+NMDS.plot.df=data.frame(NMDS1=NMDS1,NMDS2=NMDS2, Host=samples.RO$Host, 
+                        HabitatType=samples.RO$HabitatType,Plot=samples.RO$Plot)
+
+
+###### RESTORED NMDS plot by Species
+RO.species_plot<-ordiplot(NMDS, type="n", main=substitute(paste("Restored Forest: Species NMDS")), cex.main=1, display="sites", xlim=c(-0.7, 0.8), cex.lab=0.8, cex.axis=0.8)
+abline(h = 0, lty = "dotted")
+abline(v = 0, lty = "dotted")
+points(NMDS, "sites", cex=0.8, pch=16, col=groups.sp[NMDS.plot.df$Host])
+ordihull(NMDS, groups=NMDS.plot.df$Host, draw="polygon", alpha=20, col=groups.sp, border=groups.sp)
+#ordiellipse(NMDS, groups=NMDS.plot.df$Host, draw="polygon", kind="sd", alpha=20, conf=0.95, col=groups.sp, border=groups.sp)
+legend("topright", legend=levels(NMDS.plot.df$Host),  text.font=3, cex=1, pch=16, col=groups.sp, pt.cex=1, bty="n")
+
+dev.copy(pdf, "figures/RO.NMDS.pdf", height=8, width=8)
+dev.off() 
+
+haka.RO.bc.adonis <- adonis(RO_dist~Host, data=samples.RO, permutations = 9999)
+haka.RO.bc.adonis
+
+
+######## Only AK site
+AKdat<-t(otu[,grep("^AK", colnames(otu))]) # transposed data with only AK
+samples.AK<-sample[grep("^AK", rownames(sample)),] # only AKws with "AK"
+all.equal(rownames(AKdat), rownames(samples.AK)) # AKws match
+
+
+AK_dist = as.matrix((vegdist(AKdat, "bray")))
+NMDS = metaMDS(AK_dist)
+NMDS1=NMDS$points[,1]
+NMDS2=NMDS$points[,2]
+NMDS.plot.df=data.frame(NMDS1=NMDS1,NMDS2=NMDS2, Host=samples.AK$Host, 
+                        HabitatType=samples.AK$HabitatType, Plot=samples.AK$Plot)
+ 
+
+###### REMNANT NMDS plot by Species
+AK.species_plot<-ordiplot(NMDS, type="n", main=substitute(paste("Remnant Forest: Species NMDS")), cex.main=1, display="sites", xlim=c(-0.7, 1.1), cex.lab=0.8, cex.axis=0.8)
+abline(h = 0, lty = "dotted")
+abline(v = 0, lty = "dotted")
+points(NMDS, "sites", cex=0.8, pch=16, col=groups.sp[NMDS.plot.df$Host])
+ordihull(NMDS, groups=NMDS.plot.df$Host, draw="polygon", alpha=20, col=groups.sp, border=groups.sp)
+#ordiellipse(NMDS, groups=NMDS.plot.df$Host, draw="polygon", kind="sd", alpha=20, conf=0.95, col=groups.sp, border=groups.sp)
+legend("topright", legend=levels(NMDS.plot.df$Host),  text.font=3, cex=1, pch=16, col=groups.sp, pt.cex=1, bty="n")
+
+dev.copy(pdf, "figures/AK.NMDS.pdf", height=8, width=8)
+dev.off() 
+
+haka.AK.bc.adonis <- adonis(AK_dist~Host, data=samples.AK, permutations = 9999)
+haka.AK.bc.adonis
 
 
 ###Stats###
 #Bray PERMANOVA 
-haka.bc.adonis <- adonis(bc_dist~HabitatType*Host,data=sample,permutations = 9999)
+haka.bc.adonis <- adonis(bc_dist~HabitatType*Host, data=sample, permutations = 9999)
 haka.bc.adonis
 
 #Pairwise permanova
-haka.pair.perm <- pairwise.perm.manova(bc_dist,root_metadata$Hab.by.Host,
+haka.pair.perm <- pairwise.perm.manova(bc_dist, sample$Hab.by.host,
                                        nperm=9999,p.method="fdr")
 haka.pair.perm
 
 ##Bray Betadisper
 #Total difference
-haka.beta.disper <- betadisper(bc_dist,root_metadata$Hab.by.Host)
+haka.beta.disper <- betadisper(bc_dist, root_metadata$Hab.by.Host)
 haka.beta.disper.results <- permutest(haka.beta.disper, pairwise = TRUE, iter=9999)
 haka.beta.disper.results
 
@@ -421,32 +484,62 @@ library(vegan);library(ade4);library(letsR);library(ggplot2);library(fossil)
 #with similar outcomes are lower than for pairs of points with dissimilar outcomes.  We do this 
 #using the dist function.  The Mantel test function will require objects of this "distance" class.
 
+######################
 # Subset ESV table and metadata into RO and AK habitat types
-RO_meta <- subset(haka_meta, HabitatType == "Remnant Forest")
-AK_meta <-subset(haka_meta, HabitatType== "Restored Forest")
+RO_meta_data <- subset(haka_meta, HabitatType == "Remnant Forest")
 
-RO_otu <- which(rownames(haka_otu) %in% rownames(RO_meta))
-AK_otu <- which(rownames(haka_otu) %in% rownames(AK_meta))
+## subset the OTU file to give only RO
+ROdat<-t(otu[,grep("^RO", colnames(otu))]) # transposed data with only RO
+samples.RO<-sample[grep("^RO", rownames(sample)),] # only rows with "RO"
+all.equal(rownames(ROdat), rownames(samples.RO)) # rows match
+
+RO<- merge(RO_meta_data, ROdat, by = "row.names", all = TRUE) # all data merged so that row names match
+#drop NAs from samples that have no sequence data
+RO<-RO[!is.na(RO[34]),]
+
+RO_meta<-RO[,c(1:33)] # the meta data
+RO_otu<-RO[,c(34:1469)] # OTU data
 
 #Calculate geographic distances among sample points on subset data
-RO_dists_km<-earth.dist(RO_meta[,31:32],dist=TRUE)
+RO_dists_km<-earth.dist(RO_meta[,32:33], dist=TRUE)
 RO_dists_m <- (RO_dists_km * 1000)
 RO_dists_m <- as.matrix(RO_dists_m)
 rownames(RO_dists_m) <- rownames(RO_meta)
 colnames(RO_dists_m)<- t(rownames(RO_meta))
 
+RO_geomat<-RO_dists_m
+RO_dists_m<-as.dist(RO_dists_m) # make distance matrix
 
-AK_dists_km<-earth.dist(AK_meta[,31:32],dist=TRUE)
+
+########################
+## subset the OTU file to give only AK
+AK_meta_data <-subset(haka_meta, HabitatType== "Restored Forest")
+
+AKdat<-t(otu[,grep("^AK", colnames(otu))]) # transposed data with only AK
+samples.AK<-sample[grep("^AK", rownames(sample)),] # only rows with "AK"
+all.equal(rownames(AKdat), rownames(samples.AK)) # rows match
+
+AK<- merge(AK_meta_data, AKdat, by = "row.names", all = TRUE) # all data merged so that row names match
+#drop NAs from samples that have no sequence data
+AK<-AK[!is.na(AK[34]),]
+
+AK_meta<-AK[,c(1:33)] # the meta data
+AK_otu<-AK[,c(34:1469)] # OTU data
+
+AK_dists_km<-earth.dist(AK_meta[,32:33],dist=TRUE)
 AK_dists_m <- (AK_dists_km * 1000)
-AK_dists_m <- as.dist(AK_dists_m)
+AK_dists_m <- as.matrix(AK_dists_m)
 rownames(AK_dists_m) <- rownames(AK_meta)
 colnames(AK_dists_m)<- t(rownames(AK_meta))
 
+AK_geomat<-AK_dists_m
+AK_dists_m<-as.dist(AK_dists_m) # make distance matrix
+######################
+
 
 #Calculate Bray-Curtis distances on subset data
-RO_bc_dist = as.matrix((vegdist(RO_otu, "bray")))
-AK_bc_dist = as.matrix((vegdist(AK_otu, "bray")))
-
+RO_bc_dist = as.dist((vegdist(RO_otu, "bray"))); RO_bc_mat<-as.matrix(vegdist(RO_otu, "bray"))
+AK_bc_dist = as.dist((vegdist(AK_otu, "bray"))); AK_bc_mat<-as.matrix(vegdist(AK_otu, "bray"))
 
 
 #Use distance matrices to test for a correlation. The test consists of calculating the 
@@ -456,31 +549,37 @@ AK_bc_dist = as.matrix((vegdist(AK_otu, "bray")))
 #permutations defines the precision with which the p-value can be calculated.  The function 
 #to perform the Mantel test is mantel.rtest and the required arguments are the two distance 
 #matrices. The number of permutations used are 9999.
-RO_mantel_test<-mantel.rtest(RO_dists_m,RO_bc_dist,nrepet=9999)
-RO_mantel_test
-AK_mantel_test <- mantel.rtest(AK_dists,AK_bc_dist,nrepet=9999)
-AK_mantel_test
 
-RO_df<-data.frame(Distance=RO_geog_dists[lower.tri(RO_dists)],
-                    BrayCurtis=RO_bc_dist[lower.tri(RO_bc_dist)],
-                    Host=RO_meta$Host)
+###########
+RO_mantel_test<-mantel.rtest(RO_dists_m, RO_bc_dist, nrepet=9999)
+RO_mantel_test
+RO_df<-data.frame(Distance=RO_geomat[lower.tri(RO_geomat)],
+                    BrayCurtis= RO_bc_mat[lower.tri(RO_bc_mat)])
+                    #Host=RO_meta$Host)
 summary(RO_df)
 
-AK_df<-data.frame(Distance=AK_dists[lower.tri(AK_dists)],
-                    BrayCurtis=AK_bc_dist[lower.tri(AK_bc_dist)],
-                    Host=AK_meta$Host)
+
+###########
+AK_mantel_test <- mantel.rtest(AK_dists_m,AK_bc_dist,nrepet=9999)
+AK_mantel_test
+AK_df<-data.frame(Distance=AK_geomat[lower.tri(AK_geomat)],
+                    BrayCurtis=AK_bc_dist[lower.tri(AK_bc_dist)])
+                    #Host=AK_meta$Host)
 summary(AK_df)
 
+############
+
 #Export dataframe, remove NAs, bring dataframe back into R
-write.csv(RO_dist_df,file="RO_dist_dataframe.csv")
-write.csv(AK_dist_df,file="AK_dist_dataframe.csv")
+write.csv(RO_dist_df,file="output/RO_dist_dataframe.csv")
+write.csv(AK_dist_df,file="output/AK_dist_dataframe.csv")
 
-RO_dist_df<-read.csv("RO_dist_dataframe.csvv", header=T, as.is=T)
-AK_dist_df<-read.csv("AK_dist_dataframe.csv",header=T, as.is=T)
+RO_dist_df<-read.csv("output/RO_dist_dataframe.csv", header=T, as.is=T)
+AK_dist_df<-read.csv("output/AK_dist_dataframe.csv",header=T, as.is=T)
 
+##############
 #Generate plots for all elevations combined
-RO_dist_plot<- ggplot(RO_dist_df,aes(x=Distance,y=BrayCurtis,color=Host)) + 
-  scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
+RO_dist_plot<- ggplot(RO_df,aes(x=Distance,y=BrayCurtis)) +  + #color=Host
+  #scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
   geom_point(size=4,alpha=0.75) +
   stat_smooth(method = "lm", formula=y~poly(x,2),size = 2,se=F) +  
   theme(text=element_text(colour="black",size=15)) + 
@@ -495,12 +594,12 @@ RO_dist_plot<- ggplot(RO_dist_df,aes(x=Distance,y=BrayCurtis,color=Host)) +
         panel.background=element_blank())
 
 plot(RO_dist_plot)
-ggsave("RO_dist_decay.tiff", 
-       plot = RO_dist_plot, width = 9, height = 6)
+ggsave("figures/RO_dist_decay.tiff", 
+       plot = RO_dist_plot, width = 5, height = 5)
 
 
-AK_dist_plot<- ggplot(AK_dist_df,aes(x=Distance,y=BrayCurtis,color=Host)) + 
-  scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
+AK_dist_plot<- ggplot(AK_df,aes(x=Distance,y=BrayCurtis))+ #color=Host
+  #scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
   geom_point(size=3,alpha=0.75) +
   stat_smooth(method = "lm", formula=y~poly(x,2),size = 1.5,se=F) +  
   theme(text=element_text(colour="black",size=15)) + 
@@ -515,8 +614,8 @@ AK_dist_plot<- ggplot(AK_dist_df,aes(x=Distance,y=BrayCurtis,color=Host)) +
         panel.background=element_blank())
 
 plot(AK_dist_plot)
-ggsave("AK_distance_decay.tiff", 
-       plot = AK_dist_plot, width = 9, height = 6)
+ggsave("figures/AK_distance_decay.tiff", 
+       plot = AK_dist_plot, width = 6, height = 5)
 
 #Analysis of slopes
 #All hosts soil
