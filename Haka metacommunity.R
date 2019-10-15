@@ -21,7 +21,7 @@ if (!require("devtools")) install.packages("devtools") # for developement tools
 
 devtools::install_github('oswaldosantos/ggsn')
 
-pacman::p_load("multtest","phyloseq","rhdf5","ggplot2","colorspace","stringi", "geosphere", 
+pacman::p_load("ade4", "multtest","phyloseq","rhdf5","ggplot2","colorspace","stringi", "geosphere", 
                "ggplot2", "ggmap", "dplyr", "gridExtra", "geosphere", "sf", "raster", "spData",
                "tmap", "leaflet", "mapview", "shiny", "fossil", "RgoogleMaps", "devtools", "ggsn", "vegan", "multcomp",
                "dplyr", "grid", "scales", "gridExtra", "emmeans", "multcompView", "ggpubr", "Rmisc", "purr",
@@ -376,6 +376,46 @@ all.equal(rownames(haka_otu), rownames(environmental_data))
 colnames(environmental_data)<-c("OM(%)","Total N", "P", "K", "Mg", "Ca", "Na", "S","pH", "H(meq/100g)", "CEC(meq/100g)", "K+", 
                                 "Mg+2", "Ca+2", "H+", "Na+")
 
+#### convert to 2 PCs
+library(devtools)
+install_github("vqv/ggbiplot")
+library(ggbiplot)
+require(graphics)
+
+df.PCA<-environmental_data
+df.PCA$sampleID<-as.factor(rownames(df.PCA))
+df.PCA$Site <- substr(df.PCA$sampleID, 0, 2) # extract first 2 letters of ID
+df.PCA$Plot <- substr(df.PCA$sampleID, 3, 3)
+df.PCA$Host <- substr(df.PCA$sampleID, 4, 5)
+df.PCA<-na.omit(df.PCA)
+
+# remove columns unnecessary for final analysis, few factors retained
+env.PCA<-df.PCA[ , !names(df.PCA) %in% c("sampleID", "Plot", "Host", "Site")]
+Hak.env.PCA <- prcomp(env.PCA, center = TRUE, scale= TRUE) # with Site in dataframe
+PC.summary<-(summary(Hak.env.PCA))
+ev<-Hak.env.PCA$sdev^2
+newdat<-Hak.env.PCA$x[,1:4]
+plot(Hak.env.PCA, type="lines", main="Hak.env.PCA eigenvalues")
+
+####### by Site
+Site<-df.PCA$Site
+PC.Site.fig <- ggbiplot(Hak.env.PCA, choices = 1:2, obs.scale = 1, var.scale = 1, 
+                        groups= Site, ellipse = TRUE, ellipse.prob = 0.90,
+                        circle = FALSE, alpha=0, PC.Site.fig) +
+  scale_color_manual(name = '', values=NMDS.col) +
+  geom_point(aes(colour=Site), shape=17, size = 1, alpha=6/10)+
+  theme_bw() +
+  theme(axis.ticks.length=unit(-0.25, "cm"), axis.text.y=element_text(margin=unit(c(0.5, 0.5, 0.5, 0.5), "cm")), axis.text.x=element_text(margin=unit(c(0.5, 0.5, 0.5, 0.5), "cm"))) +
+  theme(legend.text=element_text(size=10)) +
+  theme(panel.background = element_rect(colour = "black", size=1))+
+  theme(legend.key = element_blank())+
+  theme(legend.direction = 'horizontal', legend.position = 'top') + theme(aspect.ratio=0.7)
+
+dev.copy(pdf, "figures/environm.PCA.pdf", height=5, width=6)
+dev.off() 
+
+########## now NMDS
+
 fit.env <- envfit(NMDS, environmental_data, na.rm=TRUE)
 
 ######### make plot by habitat with vectors for environment
@@ -470,13 +510,17 @@ haka.beta.disper <- betadisper(bc_dist, root_metadata$Hab.by.Host)
 haka.beta.disper.results <- permutest(haka.beta.disper, pairwise = TRUE, iter=9999)
 haka.beta.disper.results
 
+
+
+
+
 ########################
 ### Spatial Analyses ###
 ########################
  #####################################################
  ## Mantel tests on distance-dissimilarity patterns ##
  ####################################################
-library(vegan);library(ade4);library(letsR);library(ggplot2);library(fossil)
+
 #To run a Mantel test, we will need to generate two distance matrices: one containing spatial 
 #distances and one containing Bray-Curtis distances between samples at the given points.  In the 
 #spatial distance matrix, entries for pairs of points that are close together are lower than for 
@@ -485,8 +529,67 @@ library(vegan);library(ade4);library(letsR);library(ggplot2);library(fossil)
 #using the dist function.  The Mantel test function will require objects of this "distance" class.
 
 ######################
+# entire dataset
+haka_metadata # metadata
+hak_otu<-t(otu) # transpose
+
+# merge to have all data together
+Study.dat<-merge(haka_metadata, hak_otu, by = "row.names", all = TRUE)
+Study.dat<-Study.dat[!is.na(Study.dat[34]),]
+
+#separate dataframes
+haka_met_mant<-Study.dat[,c(1:33)] # the meta data
+hak_otu<-Study.dat[,c(34:1469)] # OTU data
+
+# geographic distance
+dists_km<-earth.dist(haka_met_mant[,32:33], dist=TRUE)
+dists_m <- (dists_km * 1000)
+dists_m <- as.matrix(dists_m)
+rownames(dists_m) <- rownames(haka_met_mant)
+colnames(dists_m)<- t(rownames(haka_met_mant))
+
+geomat<-dists_m # rename
+dists_m<-as.dist(dists_m) # make distance matrix
+
+study_bc_dist = as.dist((vegdist(hak_otu, "bray"))); study_bc_mat<-as.matrix(vegdist(hak_otu, "bray"))
+
+# mantel
+mantel_test<-mantel.rtest(dists_m, study_bc_dist, nrepet=9999)
+mantel_test # significant
+
+# new dataframe
+Study.df<-data.frame(Distance=geomat[lower.tri(geomat)],
+                  BrayCurtis= study_bc_mat[lower.tri(study_bc_mat)])
+
+##############
+#Generate plots for all elevations combined
+Study_dist_plot<- ggplot(Study.df, aes(x=log(Distance+1), y=BrayCurtis)) +
+  geom_point(size=1,alpha=0.5) +
+  stat_smooth(method = "lm", size = 1, se=F) +  
+  theme(text=element_text(colour="black",size=15)) + 
+  scale_y_continuous(name="Bray Curtis Dissimilarity",breaks=seq(0,1,0.25),limits=c(0,1)) +
+  scale_x_continuous(name="log(Distance (m)+1)",breaks=seq(0,8,1),limits=c(0,8)) +
+  theme(axis.text.x=element_text(colour="black",size=12)) +
+  theme(axis.text.y=element_text(colour="black",size=12)) +
+  theme(legend.title=element_text(colour="black",size=12,face="bold")) +
+  theme(legend.text=element_text(colour="black",size=12)) +
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
+        panel.background=element_blank())
+
+plot(Study_dist_plot)
+ggsave("figures/log.study_dist_decay.tiff", 
+       plot = Study_dist_plot, width = 5, height = 5)
+
+
+#####################
+#####################  Separated by sites
+#####################
+
 # Subset ESV table and metadata into RO and AK habitat types
 RO_meta_data <- subset(haka_meta, HabitatType == "Remnant Forest")
+
+##################### RO
 
 ## subset the OTU file to give only RO
 ROdat<-t(otu[,grep("^RO", colnames(otu))]) # transposed data with only RO
@@ -511,9 +614,10 @@ RO_geomat<-RO_dists_m
 RO_dists_m<-as.dist(RO_dists_m) # make distance matrix
 
 
-########################
+######################## AK 
+
 ## subset the OTU file to give only AK
-AK_meta_data <-subset(haka_meta, HabitatType== "Restored Forest")
+AK_meta_data <-subset(haka_metadata, HabitatType== "Restored Forest")
 
 AKdat<-t(otu[,grep("^AK", colnames(otu))]) # transposed data with only AK
 samples.AK<-sample[grep("^AK", rownames(sample)),] # only rows with "AK"
@@ -535,7 +639,6 @@ colnames(AK_dists_m)<- t(rownames(AK_meta))
 AK_geomat<-AK_dists_m
 AK_dists_m<-as.dist(AK_dists_m) # make distance matrix
 ######################
-
 
 #Calculate Bray-Curtis distances on subset data
 RO_bc_dist = as.dist((vegdist(RO_otu, "bray"))); RO_bc_mat<-as.matrix(vegdist(RO_otu, "bray"))
@@ -570,61 +673,63 @@ summary(AK_df)
 ############
 
 #Export dataframe, remove NAs, bring dataframe back into R
-write.csv(RO_dist_df,file="output/RO_dist_dataframe.csv")
-write.csv(AK_dist_df,file="output/AK_dist_dataframe.csv")
+write.csv(RO_df,file="output/RO_dist_dataframe.csv")
+write.csv(AK_df,file="output/AK_dist_dataframe.csv")
 
 RO_dist_df<-read.csv("output/RO_dist_dataframe.csv", header=T, as.is=T)
 AK_dist_df<-read.csv("output/AK_dist_dataframe.csv",header=T, as.is=T)
 
+
 ##############
 #Generate plots for all elevations combined
-RO_dist_plot<- ggplot(RO_df,aes(x=Distance,y=BrayCurtis)) +  + #color=Host
+
+RO_dist_plot<- ggplot(RO_df,aes(x=log(Distance+1), y=BrayCurtis)) + #color=Host
   #scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
-  geom_point(size=4,alpha=0.75) +
-  stat_smooth(method = "lm", formula=y~poly(x,2),size = 2,se=F) +  
+  geom_point(size=1,alpha=0.5) +
+  stat_smooth(method = "lm", size = 1, se=F) +  
   theme(text=element_text(colour="black",size=15)) + 
   scale_y_continuous(name="Bray Curtis Dissimilarity",breaks=seq(0,1,0.25),limits=c(0,1)) +
-  scale_x_continuous(name="Distance (km)",breaks=seq(0,2,0.5),limits=c(0,2)) +
-  theme(axis.text.x=element_text(colour="black",size=15)) +
-  theme(axis.text.y=element_text(colour="black",size=15)) +
-  theme(legend.title=element_text(colour="black",size=15,face="bold")) +
-  theme(legend.text=element_text(colour="black",size=14)) +
+  scale_x_continuous(name="log(Distance (m)+1)",breaks=seq(0,8,1),limits=c(0,8)) +
+  theme(axis.text.x=element_text(colour="black",size=12)) +
+  theme(axis.text.y=element_text(colour="black",size=12)) +
+  theme(legend.title=element_text(colour="black",size=12,face="bold")) +
+  theme(legend.text=element_text(colour="black",size=12)) +
   theme(panel.border = element_blank(), panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
         panel.background=element_blank())
 
 plot(RO_dist_plot)
-ggsave("figures/RO_dist_decay.tiff", 
+ggsave("figures/log.RO_dist_decay.tiff", 
        plot = RO_dist_plot, width = 5, height = 5)
 
 
-AK_dist_plot<- ggplot(AK_df,aes(x=Distance,y=BrayCurtis))+ #color=Host
+AK_dist_plot<- ggplot(AK_df,aes(x=log(Distance+1),y=BrayCurtis))+ #color=Host
   #scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
-  geom_point(size=3,alpha=0.75) +
-  stat_smooth(method = "lm", formula=y~poly(x,2),size = 1.5,se=F) +  
-  theme(text=element_text(colour="black",size=15)) + 
+  geom_point(size=1,alpha=0.5) +
+  stat_smooth(method = "lm", size = 1, se=F) +  
+  theme(text=element_text(colour="black",size=12)) + 
   scale_y_continuous(name="Bray Curtis Dissimilarity",breaks=seq(0,1,0.25),limits=c(0,1)) +
-  scale_x_continuous(name="Distance (km)",breaks=seq(0,2,0.5),limits=c(0,2)) +
-  theme(axis.text.x=element_text(colour="black",size=15)) +
-  theme(axis.text.y=element_text(colour="black",size=15)) +
-  theme(legend.title=element_text(colour="black",size=15,face="bold")) +
-  theme(legend.text=element_text(colour="black",size=14)) +
+  scale_x_continuous(name="log(Distance (m)+1)",breaks=seq(0,8,1),limits=c(0,8)) +
+  theme(axis.text.x=element_text(colour="black",size=12)) +
+  theme(axis.text.y=element_text(colour="black",size=12)) +
+  theme(legend.title=element_text(colour="black",size=12,face="bold")) +
+  theme(legend.text=element_text(colour="black",size=12)) +
   theme(panel.border = element_blank(), panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
         panel.background=element_blank())
 
 plot(AK_dist_plot)
 ggsave("figures/AK_distance_decay.tiff", 
-       plot = AK_dist_plot, width = 6, height = 5)
+       plot = AK_dist_plot, width = 5, height = 5)
 
 #Analysis of slopes
-#All hosts soil
+# ALL hosts, RO soil
 RO_dist_model <- lm(BrayCurtis~poly(Distance,2,raw=TRUE),data=RO_dist_df)
-summary(RO_model)
+summary(RO_dist_model)
 par(mfrow = c(2,2))
 plot(RO_dist_model)
 
-#All hosts roots
+# ALL hosts, AK roots
 AK_dist_model <- lm(BrayCurtis~poly(Distance,2,raw=TRUE),data=AK_dist_df)
 summary(AK_dist_model)
 par(mfrow = c(2,2))
