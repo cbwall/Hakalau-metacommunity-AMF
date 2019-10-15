@@ -411,6 +411,7 @@ PC.Site.fig <- ggbiplot(Hak.env.PCA, choices = 1:2, obs.scale = 1, var.scale = 1
   theme(legend.key = element_blank())+
   theme(legend.direction = 'horizontal', legend.position = 'top') + theme(aspect.ratio=0.7)
 
+PC.Site.fig
 dev.copy(pdf, "figures/environm.PCA.pdf", height=5, width=6)
 dev.off() 
 
