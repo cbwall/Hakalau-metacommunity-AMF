@@ -15,7 +15,7 @@
 ########## packages
 ###### ###### ###### ###### 
 
-if (!require("pacman")) install.packages("pacman") # for rapid install if not in library
+if (!require("pacman")) install.packages("pacman"); library(pacman) # for rapid install if not in library
 if (!require("BiocManager")) install.packages("BiocManager") # for buoinformatic packages
 if (!require("devtools")) install.packages("devtools") # for developement tools
 
@@ -68,11 +68,6 @@ haka_hab_types$NewHabType<- factor(haka_hab_types$NewHabType,levels=c("Open past
                                          "Restored ohia forest","Remnant koa dominated forest",
                                          "Remnant ohia dominated forest"))
 
-hap_types_base <- haka_map + 
-  ggsn::scalebar(x.min=-155.345, x.max=-155.305, y.min=19.80, y.max=19.85, dist=1, dist_unit="km", transform=TRUE,
-           st.bottom=FALSE,model="WGS84",st.color="white")
-plot(hap_types_base)
-
 hab_types_plot <- haka_map +
   geom_point(data=haka_hab_types,aes(x=Longitude,y=Latitude,fill=NewHabType),pch=21,stroke=0.3,colour="white",size=2) +
   scale_fill_manual(values=c("#F7AF51","#97D8E5","#1C84B5","#336B87","#88A550","dark green")) +
@@ -106,8 +101,7 @@ ggsave("figures/Haka_hab_types_no_legend.tiff",width= 6,height=5,plot=hab_types_
       ##########################
 
 haka_metadata <-read.csv("data/haka_soil_metadata.csv", header=TRUE, row.names=1)
-haka_metadata$HabitaType <- factor(haka_metadata$HabitatType,levels=c("Restored Forest","Remnant Forest"),
-                                   labels=c("Restored Forest,Remnant Forest"))
+
 sampling_plots <- ggmap(hakalau_map_zoom) + 
   geom_point(data=haka_metadata,aes(x=lon,y=lat,fill=HabitatType),pch=21, stroke=0.3,colour="white",size=3) +
   scale_fill_manual(values=c("#88A550","#336B87")) +
@@ -245,6 +239,8 @@ ggsave("figures/host_spec_rich.tiff", plot = spec_rich_host, width=7,height=5)
 
 #GLM with poisson error distribution to test for differences in Species richness in roots and soil 
 #Large GLM 
+
+haka_soil_metadata<-read.csv("data/haka_soil_metadata.csv")
 host_glm1 <- glm(spec_rich$Observed ~ Host*HabitatType, data=root_metadata, family = poisson(link="log")) 
 par(mfrow = c(2, 2))
 plot(host_glm1)
