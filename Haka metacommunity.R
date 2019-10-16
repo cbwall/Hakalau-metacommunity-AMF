@@ -381,6 +381,7 @@ library(devtools)
 install_github("vqv/ggbiplot")
 library(ggbiplot)
 require(graphics)
+library(plyr)
 
 df.PCA<-environmental_data
 df.PCA$sampleID<-as.factor(rownames(df.PCA))
@@ -388,6 +389,7 @@ df.PCA$Site <- substr(df.PCA$sampleID, 0, 2) # extract first 2 letters of ID
 df.PCA$Plot <- substr(df.PCA$sampleID, 3, 3)
 df.PCA$Host <- substr(df.PCA$sampleID, 4, 5)
 df.PCA<-na.omit(df.PCA)
+df.PCA$Site<-revalue(df.PCA$Site, c("AK"="Restored Forest", "RO"="Remnant Forest"))
 
 # remove columns unnecessary for final analysis, few factors retained
 env.PCA<-df.PCA[ , !names(df.PCA) %in% c("sampleID", "Plot", "Host", "Site")]
