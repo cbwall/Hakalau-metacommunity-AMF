@@ -201,7 +201,7 @@ physeq = phyloseq(OTU)
 TAX = tax_table(taxmat)
 haka_soil_physeq = merge_phyloseq(OTU, sampledata, TAX)
 #Create new physeq object working at only the species level taxonomy. Collapses all ESVs identified
-#as the same species, and subset to only include root samples
+#as the same species, and subset to only include soil samples
 ESV_rel_abund <- transform_sample_counts(haka_soil_physeq,function(x)x/sum(x))
 
 #Melt phyloseq object to make a dataframe for ggplot and bipartite
@@ -235,12 +235,15 @@ spec_rich_host = plot_richness(haka_soil_physeq, x ="Host", measures="Observed",
 plot(spec_rich_host)
 ggsave("figures/host_spec_rich.tiff", plot = spec_rich_host, width=7,height=5)
 
+# export richness from soil data and test for differences
+soil_rich<-estimate_richness(haka_soil_physeq)
+pairwise.wilcox.test(soil_rich$Observed, sample_data(haka_soil_physeq)$Host) # not different
+pairwise.wilcox.test(soil_rich$Observed, sample_data(haka_soil_physeq)$Habitat) # different 
 
 
 #GLM with poisson error distribution to test for differences in Species richness in roots and soil 
 #Large GLM 
 
-haka_soil_metadata<-read.csv("data/haka_soil_metadata.csv")
 host_glm1 <- glm(spec_rich$Observed ~ Host*HabitatType, data=root_metadata, family = poisson(link="log")) 
 par(mfrow = c(2, 2))
 plot(host_glm1)
@@ -260,6 +263,8 @@ host_spec_rich_posthoc.pairs
 #Create letters for interaction differences
 host_spec_rich_mc_letters<-cld(host_spec_rich_emmeans,Letters="abcdefg")
 host_spec_rich_mc_letters
+
+
 
 
 ##By habitat type alone
