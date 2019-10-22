@@ -815,10 +815,7 @@ diff_in_slope
 # -- Install the current dev version of MCSim
 install.packages("devtools")
 devtools::install_github('sokole/MCSim')
-
-# -- Install the version used in this tutorial
 devtools::install_github('sokole/MCSim@v0.4.1.9001')
-# v0.4.1.9001 is used in this demo
 install.packages("MCSim"); library(MCSim)
 
 # 1. Make a "landscape"
@@ -834,8 +831,10 @@ ESV_dataframe %>% as.data.frame %>%
   scale_color_manual(values=c("#88A550","#336B87")) +
   ggtitle("Plot Locations") + coord_equal() + theme_bw()
 
-haka.landscape <- fn.make.landscape(
-  site.coords = c(ESV_dataframe$Longitude,ESV_dataframe$Latitude),
+xy.cord<-data.frame(ESV_dataframe$Longitude, ESV_dataframe$Latitude); colnames(xy.cord)<-c("Longitude", "Latitude")
+
+haka.landscape <- MCSim::fn.make.landscape(
+  site.coords = xy.cord,
   m = 0.5,
   JM = 1000000)
 
