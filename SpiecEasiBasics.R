@@ -60,7 +60,7 @@ points(0:(length(dd.mb)-1), dd.mb, col="forestgreen", type='b')
 legend("topright", c("MB", "glasso"),
        col=c("forestgreen", "red"), pch=1, lty=1)
 
-#------------- plots
+#------------- plots 
 plot(hak.gl, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso",
      edge.color="gray70", vertex.color="coral") # edge = lines, vertex = symbols
 
