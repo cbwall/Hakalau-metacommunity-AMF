@@ -69,8 +69,12 @@ plot(hak.gl, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso",
 
 
 
-########### Divide up: RO sites
-# RO
+########### Divide up: 
+# first, the otu table is 'otu'
+# second, the taxonomy table is an exported phyloseq object 'ESV_dataframe'
+
+
+### RO (Remnant Forest) sites
 
 ## subset otu table
 ROdat<-otu[,grep("^RO", colnames(otu))] # data with only RO
@@ -79,6 +83,15 @@ ROdat<-otu[,grep("^RO", colnames(otu))] # data with only RO
 RO.otu<-as.matrix(ROdat[-which(rowMeans(ROdat) < 2),])
 RO.otu.pc <- (RO.otu)+1
 RO.otu.tss <- t(apply(RO.otu.pc, 1, norm_to_total))
+
+# pair rownames from OTU with the taxonomy from 'taxmat'
+RO.tax<-merge(RO.otu.tss, taxmat, by = "row.names", all = TRUE) # merge dataframes
+RO.tax<-na.omit(RO.tax)
+RO.tax<- RO.tax %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
+
+# are rows equal?
+all.equal(rownames(RO.otu.tss), rownames(RO.tax))
+
 
 # Models with glassofitting
 RO.otu.est.SpEa.GL <- spiec.easi(RO.otu.tss, method='glasso', pulsar.params = list(thresh = 0.1)) 
@@ -107,6 +120,11 @@ AK.otu<-as.matrix(AKdat[-which(rowMeans(AKdat) < 2),])
 AK.otu.pc <- (AK.otu)+1
 AK.otu.tss <- t(apply(AK.otu.pc, 1, norm_to_total))
 
+# pair rownames from OTU with the taxonomy from 'taxmat'
+AK.tax<-merge(AK.otu.tss, taxmat, by = "row.names", all = TRUE) # merge dataframes
+AK.tax<-na.omit(AK.tax)
+AK.tax<- AK.tax %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
+
 # -------------------------- Models
 AK.otu.est.SpEa.GL <- spiec.easi(AK.otu.tss, method='glasso', pulsar.params = list(thresh = 0.1))
 AK.otu.est.SpEa.MB <- spiec.easi(RO.otu.tss, method='mb', pulsar.params = list(thresh = 0.1)) 
@@ -127,16 +145,18 @@ dd.AKmb     <- degree.distribution(igAK.mb)
 
 ## networks
 par(mfrow=c(1,2), mar=c(0,1,1,1))
+
 plot(igRO.gl, layout=RO.am.coord, vertex.size=RO.vsize, vertex.label=NA, main="Remnant Forest", 
-     vertex.color="#88A550") 
-plot(igAK.gl, layout=AK.am.coord, vertex.size=AK.vsize, vertex.label=NA, main="Restored Forest", 
      vertex.color="#336B87")
+plot(igAK.gl, layout=AK.am.coord, vertex.size=AK.vsize, vertex.label=NA, main="Restored Forest", 
+     vertex.color="#88A550")
 dev.copy(pdf, "figures/network.pdf", height=5, width=7)
 dev.off() 
 
 
 ### degree distance
 par(mfrow=c(1,2))
+
 # RO degree distribution
 plot(0:(length(dd.ROgl)-1), dd.ROgl, col="red" , type='b', ylab="Frequency", xlab="Degree", 
      ylim=c(0,0.2), xlim=c(0,25), main="RO Degree Distributions")
