@@ -141,14 +141,29 @@ dd.AKmb     <- degree.distribution(igAK.mb)
 ######## combined plots
 
 ## networks
-par(mfrow=c(1,2), mar=c(0,1,1,1))
+
+pal <- brewer.pal(10, "BrBG")
+GroupRO <- RO.tax.names$Family
+vertex.col <- pal[GroupRO]
+par(mfrow=c(1,1), mar=c(0,1,1,1))
 
 plot(igRO.gl, layout=RO.am.coord, vertex.size=RO.vsize, vertex.label=NA, main="Remnant Forest", 
-     vertex.color="#336B87")
-plot(igAK.gl, layout=AK.am.coord, vertex.size=AK.vsize, vertex.label=NA, main="Restored Forest", 
-     vertex.color="#88A550")
-dev.copy(pdf, "figures/network.pdf", height=5, width=7)
+     vertex.color=vertex.col, col=1:10) #"#336B87"
+legend('topright',legend=levels(GroupRO), pch=16, col=pal, border=NA, box.lty=0, bg="transparent", 
+       cex=0.9, pt.cex=1.3, y.intersp = 0.4, inset=c(0.4, 0))
+dev.copy(pdf, "figures/ROnetwork.pdf", height=6, width=7)
 dev.off() 
+
+
+GroupAK <- AK.tax.names$Family
+vertex.col <- pal[GroupAK]
+plot(igAK.gl, layout=AK.am.coord, vertex.size=AK.vsize, vertex.label=NA, main="Restored Forest", 
+     vertex.color=vertex.col, col=1:10) #"#336B87"
+legend('topright',legend=levels(GroupAK), pch=16, col=pal, border=NA, box.lty=0, bg="transparent", 
+       cex=0.9, pt.cex=1.3, y.intersp = 0.4, inset=c(0.25, 0))
+dev.copy(pdf, "figures/AKnetwork.pdf", height=6, width=7)
+dev.off() 
+
 
 
 ### degree distance
