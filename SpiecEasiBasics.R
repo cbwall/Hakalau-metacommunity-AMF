@@ -86,11 +86,8 @@ RO.otu.tss <- t(apply(RO.otu.pc, 1, norm_to_total))
 
 # pair rownames from OTU with the taxonomy from 'taxmat'
 RO.tax<-merge(RO.otu.tss, taxmat, by = "row.names", all = TRUE) # merge dataframes
-RO.tax<-na.omit(RO.tax)
-RO.tax<- RO.tax %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
-
-# are rows equal?
-all.equal(rownames(RO.otu.tss), rownames(RO.tax))
+RO.tax.OTU<-na.omit(RO.tax)
+RO.tax.names<- RO.tax.OTU %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
 
 
 # Models with glassofitting
@@ -122,8 +119,8 @@ AK.otu.tss <- t(apply(AK.otu.pc, 1, norm_to_total))
 
 # pair rownames from OTU with the taxonomy from 'taxmat'
 AK.tax<-merge(AK.otu.tss, taxmat, by = "row.names", all = TRUE) # merge dataframes
-AK.tax<-na.omit(AK.tax)
-AK.tax<- AK.tax %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
+AK.tax.OTU<-na.omit(AK.tax)
+AK.tax.names<- AK.tax.OTU %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
 
 # -------------------------- Models
 AK.otu.est.SpEa.GL <- spiec.easi(AK.otu.tss, method='glasso', pulsar.params = list(thresh = 0.1))
