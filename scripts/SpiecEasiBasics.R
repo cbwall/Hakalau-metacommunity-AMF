@@ -6,6 +6,7 @@ library(car)
 library(huge)
 library(MASS)
 library(Matrix)
+library(RColorBrewer)
 
 # import data, has OTUs in rows and samples in columns. 
 otu <- as.matrix(read.csv("data/haka_soil_ESV_table.csv", header = TRUE,row.names = 1))
@@ -18,7 +19,12 @@ otu.pc <- (otu)+1
 
 #total sum scaling (relative abundace)
 otu.tss <- t(apply(otu.pc, 1, norm_to_total))
-             
+
+# pair rownames from OTU with the taxonomy from 'taxmat'
+tax<-merge(otu.tss, taxmat, by = "row.names", all = TRUE) # merge dataframes
+tax.OTU<-na.omit(tax)
+tax.names<- tax.OTU %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
+
 # -------------------------- Models
 otu.est.SpEa.MB <- spiec.easi(otu.tss, method='mb', pulsar.params = list(thresh = 0.1)) #mb method
 otu.est.SpEa.GL <- spiec.easi(otu.tss, method='glasso', pulsar.params = list(thresh = 0.1)) #glasso fitting
@@ -61,9 +67,15 @@ legend("topright", c("MB", "glasso"),
        col=c("forestgreen", "red"), pch=1, lty=1)
 
 #------------- plots 
-plot(hak.gl, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso",
-     edge.color="gray70", vertex.color="coral") # edge = lines, vertex = symbols
+pal <- brewer.pal(10, "BrBG")
+Group<- tax.names$Family
+vertex.col <- pal[Group]
+par(mfrow=c(1,1), mar=c(0,1,1,1))
 
+plot(hak.gl, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso",
+     edge.color="gray70", vertex.color=vertex.col, col=1:10)
+legend('topright',legend=levels(Group), pch=16, col=pal, border=NA, box.lty=0, bg="transparent", 
+       cex=0.9, pt.cex=1.3, y.intersp = 0.4, inset=c(0.4, 0))
 
 
 
@@ -86,8 +98,8 @@ RO.otu.tss <- t(apply(RO.otu.pc, 1, norm_to_total))
 
 # pair rownames from OTU with the taxonomy from 'taxmat'
 RO.tax<-merge(RO.otu.tss, taxmat, by = "row.names", all = TRUE) # merge dataframes
-RO.tax.OTU<-na.omit(RO.tax)
-RO.tax.names<- RO.tax.OTU %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
+RO.tax<-na.omit(RO.tax)
+RO.tax.names<- RO.tax %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
 
 
 # Models with glassofitting
@@ -119,8 +131,8 @@ AK.otu.tss <- t(apply(AK.otu.pc, 1, norm_to_total))
 
 # pair rownames from OTU with the taxonomy from 'taxmat'
 AK.tax<-merge(AK.otu.tss, taxmat, by = "row.names", all = TRUE) # merge dataframes
-AK.tax.OTU<-na.omit(AK.tax)
-AK.tax.names<- AK.tax.OTU %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
+AK.tax<-na.omit(AK.tax)
+AK.tax.names<- AK.tax %>% dplyr::select(Kingdom, Phylum,  Class, Order,  Family,  Genus, Species, Name)
 
 # -------------------------- Models
 AK.otu.est.SpEa.GL <- spiec.easi(AK.otu.tss, method='glasso', pulsar.params = list(thresh = 0.1))
@@ -138,6 +150,7 @@ AK.am.coord <- layout.fruchterman.reingold(igAK.mb)
 dd.AKgl     <- degree.distribution(igAK.gl)
 dd.AKmb     <- degree.distribution(igAK.mb)
 
+
 ######## combined plots
 
 ## networks
@@ -149,8 +162,8 @@ par(mfrow=c(1,1), mar=c(0,1,1,1))
 
 plot(igRO.gl, layout=RO.am.coord, vertex.size=RO.vsize, vertex.label=NA, main="Remnant Forest", 
      vertex.color=vertex.col, col=1:10) #"#336B87"
-legend('topright',legend=levels(GroupRO), pch=16, col=pal, border=NA, box.lty=0, bg="transparent", 
-       cex=0.9, pt.cex=1.3, y.intersp = 0.4, inset=c(0.4, 0))
+legend('topleft',legend=levels(GroupRO), pch=16, col=pal, border=NA, box.lty=0, bg="transparent", 
+       cex=0.8, pt.cex=1.2, y.intersp = 0.6, inset=c(0.65, 0.1))
 dev.copy(pdf, "figures/ROnetwork.pdf", height=6, width=7)
 dev.off() 
 
@@ -159,28 +172,37 @@ GroupAK <- AK.tax.names$Family
 vertex.col <- pal[GroupAK]
 plot(igAK.gl, layout=AK.am.coord, vertex.size=AK.vsize, vertex.label=NA, main="Restored Forest", 
      vertex.color=vertex.col, col=1:10) #"#336B87"
-legend('topright',legend=levels(GroupAK), pch=16, col=pal, border=NA, box.lty=0, bg="transparent", 
-       cex=0.9, pt.cex=1.3, y.intersp = 0.4, inset=c(0.25, 0))
+legend('bottomright',legend=levels(GroupAK), pch=16, col=pal, border=NA, box.lty=0, bg="transparent", 
+       cex=0.8, pt.cex=1.2, y.intersp = 0.6, inset=c(0.52, 0.05))
 dev.copy(pdf, "figures/AKnetwork.pdf", height=6, width=7)
 dev.off() 
 
 
 
 ### degree distance
-par(mfrow=c(1,2))
+par(mfrow=c(1,2), mar=c(3,1,1,2))
 
 # RO degree distribution
 plot(0:(length(dd.ROgl)-1), dd.ROgl, col="red" , type='b', ylab="Frequency", xlab="Degree", 
-     ylim=c(0,0.2), xlim=c(0,25), main="RO Degree Distributions")
+     ylim=c(0,0.2), xlim=c(0,30), main="RO Degree Distributions")
 points(0:(length(dd.ROmb)-1), dd.ROmb, col="forestgreen", type='b')
 
 # AK degree distribution
 plot(0:(length(dd.AKgl)-1), dd.AKgl, col="red" , type='b', ylab="Frequency", xlab="Degree",
-     ylim=c(0,0.2), xlim=c(0,25), main="AK Degree Distributions")
+     ylim=c(0,0.2), xlim=c(0,30), main="AK Degree Distributions")
 points(0:(length(dd.AKmb)-1), dd.AKmb, col="forestgreen", type='b')
 legend("topleft", c("MB", "glasso"), box.lty=0, bg="transparent", y.intersp = 0.4,
        col=c("forestgreen", "red"), pch=1, lty=1)
 
 dev.copy(pdf, "figures/network.dd.pdf", height=5, width=7)
 dev.off() 
+
+
+
+
+
+### TO TEST
+# NODE DEGREE, BETWEENNESS-CENTRALITY TEST
+# directed vs. undirected degrees check
+
 
