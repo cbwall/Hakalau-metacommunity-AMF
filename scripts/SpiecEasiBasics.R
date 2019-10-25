@@ -1,3 +1,8 @@
+############################################################################################################
+### Composite co-occurrence networks (habitat type x sample type) for visual and identifying keystone sp ###
+############################################################################################################
+
+### SpiecEasi ###
 library(devtools)
 install_github("zdk123/SpiecEasi")
 library(SpiecEasi)
@@ -234,3 +239,180 @@ legend("topleft", c("RO", "AK"), box.lty=0, bg="transparent", y.intersp = 0.4,
 # directed vs. undirected degrees check
 
 
+
+
+############## Using phyloseq
+
+### Subset phyloseq object into different hab types and then by roots and soil
+RO.physeq = subset_samples(haka_soil_physeq,HabitatType == "Remnant Forest")
+AK.physeq = subset_samples(haka_soil_physeq,HabitatType == "Restored Forest")
+
+### Construct networks using Spiec Easi (save in case R crashes as an RDS file)
+se.RO<- spiec.easi(RO.physeq, method='mb', lambda.min.ratio=1e-2, nlambda=20, pulsar.params=list(rep.num=50))
+saveRDS(se.RO,"output/spiec_easi_files/se.RO.RData")
+se.RO<- readRDS("output/spiec_easi_files/se.RO.RData")
+
+se.AK<- spiec.easi(AK.physeq, method='mb', lambda.min.ratio=1e-2, nlambda=20, pulsar.params=list(rep.num=50))
+saveRDS(se.AK,"output/spiec_easi_files/se.AK.RData")
+se.AK <- readRDS("output/spiec_easi_files/se.AK.RData")
+
+### Convert to igraph objects for plotting and computing graph statistics.
+#Bring in edge weights
+ig.RO<-adj2igraph(se.RO$refit$stars, vertex.attr=list(name=taxa_names(ro.physeq)))
+ig.AK<-adj2igraph(se.AK$refit$stars, vertex.attr=list(name=taxa_names(ak.physeq)))
+
+V(ig.RO)$label<-V(ig.RO)$name
+V(ig.RO)$frame.color = "black"
+
+V(ig.AK)$label<-V(ig.RO)$name
+V(ig.AK)$frame.color = "black"
+
+# now both are ready for igraph and plotting
+
+
+#########  RO network in igrpah
+#Calculate number of samples each AM fungal species (node) is detected, and add as vertex attribute
+RO_dat =fast_melt(RO.physeq)
+RO_no.samples = RO_dat[, list(no.samples=sum(count>0)),by=TaxaID]
+RO_no.samples = as.data.frame(RO_no.samples)
+V(ig.RO)$no.samples = as.numeric(RO_no.samples$no.samples[match(V(ig.RO)$name, RO_no.samples$TaxaID)])
+ig.RO = delete_vertices(ig.RO, V(ig.RO)$no.samples == 0)
+
+#Calculate relative abundance of each AM fungal species (node), and add as vertex attribute
+RO.rel_abund <- summarize_taxa(RO.physeq,"Species")
+V(ig.RO)$rel.abund = as.numeric(RO.rel_abund$meanRA[match(V(ig.RO)$name, RO_no.samples$TaxaID)])
+
+#Important nodes
+#First calcuate betweenness (nodes w/ high betweenness centrality represent key connector species in network)
+V(ig.RO)$betweenness = igraph::betweenness(ig.RO,weights=E(ig.RO),normalized=FALSE)
+#Then calculate node degree (nodes with high degree represent network hubs)
+V(ig.RO)$degree = igraph::degree(ig.RO,mode="all",normalized=FALSE)
+#Size nodes according to the two metrics
+V(ig.RO)$size = (V(ig.RO)$betweenness*V(ig.RO)$degree)/100
+
+#Colour by Family. First need to assign colours to match previously made graphs
+net_tax=read.csv("data/haka_soil_taxonomy.csv", header = TRUE,row.names = 1)
+net_tax$OTU<-row.names(net_tax)
+V(ig.RO)$Family=as.character(net_tax$Family[match(V(ig.RO)$name, net_tax$OTU)])
+
+pal<-brewer.pal(10,"Paired")
+GroupRO <- V(ig.RO)$Family
+vertex.col <- pal[V(ig.RO)$Family]
+
+par(mfrow=c(1,1), mar=c(0,1,1,1))
+
+# if want to set colors manually with names....
+V(ig.RO)$color=V(ig.RO)$Family
+V(ig.RO)$color=gsub("Acaulosporaceae",pal[1] ,V(ig.RO)$color)
+V(ig.RO)$color=gsub("Ambisporaceae",pal[2],V(ig.RO)$color)
+V(ig.RO)$color=gsub("Archaeosporaceae",pal[3],V(ig.RO)$color)
+V(ig.RO)$color=gsub("Archaeosporales_uncultured",pal[4],V(ig.RO)$color)
+V(ig.RO)$color=gsub("Claroideoglomeraceae",pal[5],V(ig.RO)$color)
+V(ig.RO)$color=gsub("Diversisporaceae",pal[6],V(ig.RO)$color)
+V(ig.RO)$color=gsub("Geosiphonaceae",pal[7],V(ig.RO)$color)
+V(ig.RO)$color=gsub("Gigasporaceae",pal[8],V(ig.RO)$color)
+V(ig.RO)$color=gsub("Glomeraceae",pal[9],V(ig.RO)$color)
+V(ig.RO)$color=gsub("Paraglomeraceae",pal[10],V(ig.RO)$color)
+
+######### RO network plot
+par(mfrow=c(1,1))
+par(mar=c(0,2,2,0))
+set.seed(606)
+plot(ig.RO, vertex.size=7, vertex.shape="circle", vertex.color=V(ig.RO)$color,
+     edge.width=3, edge.color="dark grey",layout=layout_with_fr,
+     vertex.label=NA)
+legend('topright',legend=levels(as.factor(V(ig.RO)$Family)), pch=16, col=levels(as.factor(V(ig.RO)$color)), border=NA, box.lty=0, bg="transparent", 
+       cex=0.7, pt.cex=1.1, y.intersp = 0.6, inset=c(0.6, 0.025))
+dev.copy(pdf, "figures/network.RO.mb.pdf", height=5, width=7)
+dev.off() 
+######### 
+
+
+#########  AK network in igrpah
+#Calculate number of samples each AM fungal species (node) is detected, and add as vertex attribute
+AK_dat =fast_melt(AK.physeq)
+AK_no.samples = AK_dat[, list(no.samples=sum(count>0)),by=TaxaID]
+AK_no.samples = as.data.frame(AK_no.samples)
+V(ig.AK)$no.samples = as.numeric(AK_no.samples$no.samples[match(V(ig.AK)$name, AK_no.samples$TaxaID)])
+ig.AK = delete_vertices(ig.AK, V(ig.AK)$no.samples == 0)
+
+#Calculate relative abundance of each AM fungal species (node), and add as vertex attribute
+AK.rel_abund <- summarize_taxa(AK.physeq,"Species")
+V(ig.AK)$rel.abund = as.numeric(AK.rel_abund$meanRA[match(V(ig.AK)$name, AK_no.samples$TaxaID)])
+
+#Important nodes
+#First calcuate betweenness (nodes w/ high betweenness centrality represent key connector species in network)
+V(ig.AK)$betweenness = igraph::betweenness(ig.AK,weights=E(ig.AK),normalized=FALSE)
+#Then calculate node degree (nodes with high degree represent network hubs)
+V(ig.AK)$degree = igraph::degree(ig.AK,mode="all",normalized=FALSE)
+#Size nodes according to the two metrics
+V(ig.AK)$size = (V(ig.AK)$betweenness*V(ig.AK)$degree)/100
+
+#Colour by Family. First need to assign colours to match previously made graphs
+net_tax=read.csv("data/haka_soil_taxonomy.csv", header = TRUE, row.names = 1)
+V(ig.AK)$Family=as.character(net_tax$Family[match(V(ig.AK)$name, net_tax$OTU)])
+
+
+par(mfrow=c(1,1), mar=c(0,1,1,1))
+
+# if want to set colors manually with names....
+V(ig.AK)$color=V(ig.AK)$Family
+V(ig.AK)$color=gsub("Acaulosporaceae",pal[1] ,V(ig.AK)$color)
+V(ig.AK)$color=gsub("Ambisporaceae",pal[2],V(ig.AK)$color)
+V(ig.AK)$color=gsub("Archaeosporaceae",pal[3],V(ig.AK)$color)
+V(ig.AK)$color=gsub("Archaeosporales_uncultured",pal[4],V(ig.AK)$color)
+V(ig.AK)$color=gsub("Claroideoglomeraceae",pal[5],V(ig.AK)$color)
+V(ig.AK)$color=gsub("Diversisporaceae",pal[6],V(ig.AK)$color)
+V(ig.AK)$color=gsub("Geosiphonaceae",pal[7],V(ig.AK)$color)
+V(ig.AK)$color=gsub("Gigasporaceae",pal[8],V(ig.AK)$color)
+V(ig.AK)$color=gsub("Glomeraceae",pal[9],V(ig.AK)$color)
+V(ig.AK)$color=gsub("Paraglomeraceae",pal[10],V(ig.AK)$color)
+
+#########  AK network plot
+par(mfrow=c(1,1))
+par(mar=c(0,2,2,0))
+set.seed(606)
+plot(ig.AK, vertex.size=7, vertex.shape="circle", vertex.color=V(ig.AK)$color,
+     edge.width=3, edge.color="dark grey",layout=layout_with_fr,
+     vertex.label=NA)
+legend('topright',legend=levels(as.factor(V(ig.AK)$Family)), pch=16, col=levels(as.factor(V(ig.AK)$color)), border=NA, box.lty=0, bg="transparent", 
+       cex=0.7, pt.cex=1.1, y.intersp = 0.6, inset=c(0.6, 0.025))
+dev.copy(pdf, "figures/network.AK.mb.pdf", height=5, width=7)
+dev.off() 
+######### 
+
+
+#Manuscript plot
+par(mar=c(0.75,0.75,0.75,0.75))
+par(mfrow=c(1,2))
+set.seed(606)
+plot(ig.RO, vertex.size=7, vertex.shape="circle",vertex.color=V(ig.ro.r)$color, 
+     edge.width=3, edge.color="dark grey",layout=layout_with_fr,
+     vertex.label=NA, main="Remnant Forest")
+set.seed(606)
+plot(ig.AK, vertex.shape="circle",vertex.color=V(ig.ak.r)$color, 
+     vertex.size= 7, edge.width=3, edge.color="dark grey",layout=layout_with_fr,
+     vertex.label=NA, main="Restored Forest")
+legend('topright',legend=levels(as.factor(V(ig.AK)$Family)), pch=16, col=levels(as.factor(V(ig.AK)$color)), border=NA, box.lty=0, bg="transparent", 
+       cex=0.7, pt.cex=1.1, y.intersp = 0.4, inset=c(0.1, 0.05))
+
+dev.copy(pdf, "figures/Network.pdf", height=6, width=8)
+dev.off() 
+
+
+######### Degree distribution plots
+dd.RO     <- degree.distribution(ig.RO)
+dd.AK     <- degree.distribution(ig.AK)
+
+par(mfrow=c(1,1), mar=c(4,4,2,2))
+# RO degree distribution
+plot(0:(length(dd.RO)-1), dd.RO, col="#88A550" , type='b', ylab="Frequency", xlab="Degree", 
+    main="Degree Distributions", ylim=c(0,0.5), xlim=c(0,12), lwd=1.5)
+points(0:(length(dd.AK)-1), dd.AK, ylim=c(0,0.5), xlim=c(0,12), col="#336B87", type='b', lwd=1.5)
+legend("topright", c("RO","AK"), col=c("#88A550","#336B87"), pch=1, lty=1)
+dev.copy(pdf, "figures/dd.mb.habitat.pdf", height=5, width=7)
+dev.off() 
+######### 
+
+title = "plot_bar"
+plot_bar(AK.physeq, "Family", "Abundance")

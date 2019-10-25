@@ -24,7 +24,7 @@ devtools::install_github('oswaldosantos/ggsn')
 pacman::p_load("ade4", "multtest","phyloseq","rhdf5","ggplot2","colorspace","stringi", "geosphere", 
                "ggplot2", "ggmap", "dplyr", "gridExtra", "geosphere", "sf", "raster", "spData",
                "tmap", "leaflet", "mapview", "shiny", "fossil", "RgoogleMaps", "devtools", "ggsn", "vegan", "multcomp",
-               "dplyr", "grid", "scales", "gridExtra", "emmeans", "multcompView", "ggpubr", "Rmisc", "purr",
+               "dplyr", "grid", "scales", "gridExtra", "emmeans", "multcompView", "ggpubr", "Rmisc", "purrr",
                "RVAideMemoire", "RColorBrewer", "vegan")
 
 
@@ -201,7 +201,9 @@ physeq = phyloseq(OTU)
 TAX = tax_table(taxmat)
 haka_soil_physeq = merge_phyloseq(OTU, sampledata, TAX)
 
-#Create new physeq object working at only the species level taxonomy. Collapses all ESVs identified as the same species. Only  soil samples
+#Create new physeq object working at only the species level taxonomy. Collapses all ESVs identified
+#as the same species, and subset to only include root samples
+haka_soil_physeq <- tax_glom(haka_soil_physeq,"Species")
 ESV_rel_abund <- transform_sample_counts(haka_soil_physeq,function(x)x/sum(x))
 
 #Melt phyloseq object to make a dataframe for ggplot and bipartite
