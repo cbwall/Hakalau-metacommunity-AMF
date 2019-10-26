@@ -201,10 +201,9 @@ physeq = phyloseq(OTU)
 TAX = tax_table(taxmat)
 haka_soil_physeq = merge_phyloseq(OTU, sampledata, TAX)
 
-#Create new physeq object working at only the species level taxonomy. Collapses all ESVs identified
-#as the same species, and subset to only include root samples
-haka_soil_physeq <- tax_glom(haka_soil_physeq,"Species")
-ESV_rel_abund <- transform_sample_counts(haka_soil_physeq,function(x)x/sum(x))
+#Create new physeq object working at only the species level taxonomy. Collapses all ESVs identified as the same species
+haka_VT_soil_physeq <- tax_glom(haka_soil_physeq,"Species")
+ESV_rel_abund <- transform_sample_counts(haka_VT_soil_physeq,function(x)x/sum(x))
 
 #Melt phyloseq object to make a dataframe for ggplot and bipartite
 ESV_dataframe<-psmelt(ESV_rel_abund)
@@ -219,7 +218,7 @@ ESV_dataframe<-psmelt(ESV_rel_abund)
 #Plots and analyses
 par(mgp = c(3, 3, 0))
 
-spec_rich_host = plot_richness(haka_soil_physeq, x ="Host", measures="Observed", color="Host")  +
+spec_rich_host = plot_richness(haka_VT_soil_physeq, x ="Host", measures="Observed", color="Host")  +
   geom_boxplot(col="black", aes(fill=Host), alpha=0.8 , lwd=0.5, outlier.colour = "gray50") +
   scale_color_manual(name= "Host species", values=c("#D73027","#FC8D59","goldenrod","#008000","darkslategray3","#008B8B","#4575B4")) +
   scale_fill_manual(name= "Host species", values=c("#D73027","#FC8D59","goldenrod","#008000","darkslategray3","#008B8B","#4575B4"))  + 
@@ -240,7 +239,7 @@ ggsave("figures/host_spec_rich.tiff", plot = spec_rich_host, width=7,height=5)
 
 
 ##By habitat type alone
-spec_rich_hab = plot_richness(haka_soil_physeq, x ="Plot", measures="Observed", color="HabitatType") +
+spec_rich_hab = plot_richness(haka_VT_soil_physeq, x ="Plot", measures="Observed", color="HabitatType") +
   geom_boxplot(col="black", aes(fill=HabitatType), alpha=0.8 , lwd=0.5) + 
   scale_color_manual(name= "Habitat Type", values=c("#88A550", "#336B87")) +
   scale_fill_manual(name= "Habitat Type", values=c("#88A550", "#336B87")) +
@@ -263,9 +262,9 @@ ggsave("figures/species_richness_by_plot.tiff", plot = spec_rich_hab, width=6,he
 
 #########################################################
 # export richness from soil data and test for differences
-soil_rich<-estimate_richness(haka_soil_physeq, measures="Observed")
-pairwise.wilcox.test(soil_rich$Observed, sample_data(haka_soil_physeq)$Host) # not different
-pairwise.wilcox.test(soil_rich$Observed, sample_data(haka_soil_physeq)$Habitat) # different 
+soil_rich<-estimate_richness(haka_VT_soil_physeq, measures="Observed")
+pairwise.wilcox.test(soil_rich$Observed, sample_data(haka_VT_soil_physeq)$Host) # not different
+pairwise.wilcox.test(soil_rich$Observed, sample_data(haka_VT_soil_physeq)$Habitat) # different 
 
 # inspect alpha diversity a bit more
 soil_rich$sampleID<-as.factor(rownames(soil_rich))
