@@ -12,6 +12,8 @@ library(huge)
 library(MASS)
 library(Matrix)
 library(RColorBrewer)
+library(ggplot2)
+library(scales)
 
 # import data, has OTUs in rows and samples in columns. 
 otu <- as.matrix(read.csv("data/haka_soil_ESV_table.csv", header = TRUE,row.names = 1))
@@ -591,12 +593,107 @@ centrality_within_AK
 
 
 
+##############################
+#####   KEYSTONE SPECIES   ###
+##############################
+
+# Remnant Forest
+RO.between <- as.data.frame(V(ig.RO)$betweenness,normalized=TRUE)
+RO.degree <- as.data.frame(V(ig.RO)$degree,mode="all",normalized=TRUE)
+RO.rel.abund <- as.data.frame(V(ig.RO)$rel.abund)
+RO.fam <- as.data.frame(V(ig.RO)$Family)
+RO.species <- as.data.frame(net_tax$Species[match(V(ig.RO)$name,net_tax$OTU)])
+RO.no.samples <- as.data.frame(V(ig.RO)$no.samples)
+sample_data(RO.physeq)
+RO.total.samples <- as.data.frame(rep(237),times=162)
+RO.keystone <- cbind(RO.between,RO.degree,RO.rel.abund,RO.fam,RO.species,RO.no.samples,RO.total.samples)
+rownames(RO.keystone) <- V(ig.RO)$name
+colnames(RO.keystone) <- c("Betweenness","Degree","RelativeAbundance","Family","Species","No.Samples","TotalSamples")
+RO.keystone$No.Samples <- as.numeric(RO.keystone$No.Samples)
+RO.keystone$perc.samples <- RO.keystone$No.Samples / RO.keystone$TotalSamples
+RO.keystone$Prevalence <- RO.keystone$perc.samples * RO.keystone$RelativeAbundance
+
+
+# Restored Forest
+AK.between <- as.data.frame(V(ig.AK)$betweenness,normalized=TRUE)
+AK.degree <- as.data.frame(V(ig.AK)$degree,mode="all",normalized=TRUE)
+AK.rel.abund <- as.data.frame(V(ig.AK)$rel.abund)
+AK.fam <- as.data.frame(V(ig.AK)$Family)
+AK.species <- as.data.frame(net_tax$Species[match(V(ig.AK)$name,net_tax$OTU)])
+AK.no.samples <- as.data.frame(V(ig.AK)$no.samples)
+sample_data(AK.physeq)
+AK.total.samples <- as.data.frame(rep(237),times=162)
+AK.keystone <- cbind(AK.between,AK.degree,AK.rel.abund,AK.fam,AK.species,AK.no.samples,AK.total.samples)
+rownames(AK.keystone) <- V(ig.AK)$name
+colnames(AK.keystone) <- c("Betweenness","Degree","RelativeAbundance","Family","Species","No.Samples","TotalSamples")
+AK.keystone$No.Samples <- as.numeric(AK.keystone$No.Samples)
+AK.keystone$perc.samples <- AK.keystone$No.Samples / AK.keystone$TotalSamples
+AK.keystone$Prevalence <- AK.keystone$perc.samples * AK.keystone$RelativeAbundance
+
+
+# plot RO
+RO.keystone.plot <- ggplot(RO.keystone,aes(x=Degree,y=Betweenness)) +
+    geom_point(aes(size=Prevalence,colour=Family),position="jitter") +
+    ylab("log(Betweenness Centrality-normalized)") + 
+    xlab("Node degree") +
+    scale_x_continuous(limits=c(0,12), breaks=seq(0,12, by=3)) +
+    scale_y_continuous(trans=log10_trans(),breaks=trans_breaks("log10",function(x)10^x),
+                       labels=trans_format("log10",math_format(10^.x)),limits=c(10^0,10^4)) +
+    theme(text=element_text(colour="black",size=12)) + 
+    theme(axis.text.x=element_text(hjust=1,colour="black",size=12)) +
+    theme(axis.text.y=element_text(colour="black",size=12)) +
+    theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
+          panel.background=element_blank()) +
+    scale_colour_manual(values=pal, limits=GroupRO) +
+    guides(colour=guide_legend(override.aes=list(size=3))) +
+    theme(legend.key=element_blank())+ theme(legend.text=element_text(size=8)) +
+    theme(legend.key.size = unit(.4, "cm"))+
+    ggtitle("A) Remnant Forest")
+RO.keystone.plot
+
+# plot AK
+AK.keystone.plot <- ggplot(AK.keystone,aes(x=Degree,y=Betweenness)) +
+    geom_point(aes(size=Prevalence,colour=Family),position="jitter") +
+    ylab("") + 
+    xlab("Node degree") +
+    scale_x_continuous(limits=c(0,12), breaks=seq(0,12, by=3)) +
+    scale_y_continuous(trans=log10_trans(),breaks=trans_breaks("log10",function(x)10^x),
+                       labels=trans_format("log10",math_format(10^.x)),limits=c(10^0,10^4)) +
+    theme(text=element_text(colour="black",size=12)) + 
+    theme(axis.text.x=element_text(hjust=1,colour="black",size=12)) +
+    theme(axis.text.y=element_text(colour="black",size=12)) +
+    theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
+          panel.background=element_blank()) +
+    scale_colour_manual(values=pal, limits=GroupRO) +
+    guides(colour=guide_legend(override.aes=list(size=3))) +
+    theme(legend.key=element_blank())+ theme(legend.text=element_text(size=8)) +
+    theme(legend.key.size = unit(.4, "cm"))+
+    ggtitle("B) Restored Forest")
+AK.keystone.plot
+
+# extract legend from plot
+KS.legend <- get_legend(
+    # create some space to the left of the legend
+    AK.keystone.plot + theme(legend.box.margin = margin(0, 0, 0, 12)))
+
+KS.plots<- plot_grid(RO.keystone.plot + theme(legend.position = "none"), 
+                          AK.keystone.plot + theme(legend.position = "none"), 
+                          ncol=2,nrow=1)
+plot_grid(KS.plots, KS.legend, rel_widths = c(2, 1)) # legend column 1/2 size as first object
+dev.copy()
+ggsave("figures/keystone.fig.pdf", width = 7, height = 4)
+
+
+
+
 
 # COMES LATER
-connectedness_within_AK <- t.test(subset(fungal_networks,
-                                         HabitatType == "Restored Forest" & SampleType == "roots")$Connectedness,
-                                  subset(fungal_networks,
-                                         HabitatType == "Restored Forest" & SampleType == "soil")$Connectedness,
+connectedness_within_AK <- t.test(subset(obs_fungal_networks,
+                                         HabitatType == "Restored Forest")$Connectedness,
+                                  subset(obs_fungal_networks,
+                                         HabitatType == "Restored Forest")$Connectedness,
                                   paired=FALSE, var.equal=FALSE)
 connectedness_within_AK
 
