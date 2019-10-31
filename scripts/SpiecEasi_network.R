@@ -276,6 +276,65 @@ plot_grid(KS.plots, KS.legend, rel_widths = c(2, 1)) # legend column 1/2 size as
 dev.copy()
 ggsave("figures/keystone.fig.pdf", width = 7, height = 4)
 
+### keystone species of interest: 
+### RO: Claroideoglomeraceae spp. VTX00225 (8 node degrees, 193 Between-Central)
+### AK: Acaulosporaceae spp. VTX00272, (11 node degrees, 547 Between-Central)
+haka_VT_soil_physeq # original full phyloseq object with VT species
+ESV_rel_abund <- transform_sample_counts(haka_VT_soil_physeq,function(x)x/sum(x))
+ESV_dataframe<-psmelt(ESV_rel_abund)
+
+Abund<-aggregate(Abundance~Species+HabitatType+Plot+TreeID+Longitude+Latitude, data=ESV_dataframe, FUN=mean)
+Abund.Claro<-Abund[(Abund$Species=="VTX00225"),] # RO
+sum(Abund.Claro$Abundance > 0) # 6 trees
+
+Abund.Acaul<-Abund[(Abund$Species=="VTX00272"),] # AK 
+sum(Abund.Acaul$Abundance > 0) # 72 trees
+
+##############################################################################################################
+###### What the hell, let's Krig baby
+##############################################################################################################
+# load packages
+library(sp)
+library(gstat)
+
+suppressPackageStartupMessages({
+    library(dplyr) # for "glimpse"
+    library(ggplot2)
+    library(scales) # for "comma"
+    library(magrittr)
+})
+
+# subset AK abundance data
+AK.abund<-Abund.Acaul
+
+# bubble plot of abundance
+Keystone.bubble<-ggplot(AK.abund, aes(x = Longitude, y = Latitude)) + 
+    geom_point(aes(color = HabitatType, size = Abundance), alpha = 0.5)+
+    scale_color_manual(values = c("#88A550","#336B87")) + theme_bw()
+Keystone.bubble
+ggsave("figures/Keystone.bubble.png",width= 8,height=8, plot=Keystone.bubble)
+
+
+
+# spatial coordinate object
+coordinates(AK.KEY)<- ~Longitude +Latitude # coordinates for samples of interest
+
+
+col.scheme.N <- colorRampPalette(c('dodgerblue', 'darkseagreen2', 'gray5'))(6)
+Grid.AK.KEY <- spsample(AK.KEY, type='regular', n=1e4)
+gridded(Grid.AK.KEY) <- TRUE
+
+krig.Key <- krige(Abundance ~ 1, AK.KEY, Grid.AK.KEY) # ordinary kriging
+plot(variogram(Abundance ~ 1, AK.KEY)) # variogram
+
+plot.krig.Key<-spplot(krig.Key["var1.pred"], col.regions=colorRampPalette(col.scheme.N), 
+                         main="AK keystone"); plot.krig.Key
+dev.copy(pdf, "figures/plot.krig.Key.pdf", height=6, width=8)
+dev.off()
+
+
+
+
 
 ##############################################################################################################
 ### Co-occurrence networks by plot (habitat type x plot) for overall network characteristics ###
@@ -427,19 +486,43 @@ AK6_no.samples = as.data.frame(AK6_no.samples)
 V(ig.AK6)$no.samples=as.numeric(AK6_no.samples$no.samples[match(V(ig.AK6)$name, AK6_no.samples$TaxaID)])
 ig.AK6= delete_vertices(ig.AK6,V(ig.AK6)$no.samples == 0)
 
-
 obs_fungal_networks <- as.list(ig.RO1,ig.RO2,ig.RO3,ig.RO4,ig.RO5,ig.RO6,ig.AK1,ig.AK2,ig.AK3,ig.AK4,ig.AK5,ig.AK6)
 
 
-##############################
-#####  CHARACTERISTICS   #####
-##############################
-#Betweenness centrality
+#########################################
+#####  CHARACTERISTICS  of Habitats #####
+#########################################
+### By habitat VTs
+
+# Centrality-Betweeness
 ig.RO_between <- igraph::betweenness(ig.RO, weights=E(ig.RO),normalized=TRUE)
 ig.AK_between <- igraph::betweenness(ig.AK,weights=E(ig.AK),normalized=TRUE)
 
-
 #Connectedness (degree)
+ig.RO_degree <- igraph::degree(ig.RO, mode="all", normalized=TRUE)
+ig.AK_degree <- igraph::degree(ig.AK, mode="all", normalized=TRUE)
+
+# Density: number of edges in a network divided by the total number of possible edges.
+ig.RO.AK.degree<- c(edge_density(ig.RO),edge_density(ig.AK))
+
+# Average Path Length: how long are paths around a network?
+average.path.length(ig.RO)
+average.path.length(ig.AK)
+
+#### T-tests
+# Welch Tests
+centrality_between_hab <- t.test(ig.RO_between,ig.AK_between, paired=FALSE, var.equal=FALSE)
+centrality_between_hab # signific, but barely. Diff 'betweenness' by habitat
+
+connect_degree_hab <- t.test(ig.RO_degree,ig.AK_degree, paired=FALSE, var.equal=FALSE)
+connect_degree_hab # NS similar 'degree nodes' by habitat
+
+#######################################################
+#####  CHARACTERISTICS  of Plot means in Habitats #####
+#######################################################
+
+### For each plot, then generate means
+# Centrality-Betweeness
 ig.RO1_between <- igraph::betweenness(ig.RO1, weights=E(ig.RO1), normalized=TRUE)
 ig.RO2_between <- igraph::betweenness(ig.RO2, weights=E(ig.RO2), normalized=TRUE)
 ig.RO3_between <- igraph::betweenness(ig.RO3, weights=E(ig.RO3), normalized=TRUE)
@@ -484,7 +567,7 @@ haka_connectedness <- c(mean(ig.RO1_degree),mean(ig.RO2_degree),mean(ig.RO3_degr
         
 haka_connectedness <- as.data.frame(haka_connectedness)
 
-#Density
+# Density
 haka_density <- c(edge_density(ig.RO1),edge_density(ig.RO2),edge_density(ig.RO3),
                   edge_density(ig.RO4),edge_density(ig.RO5),edge_density(ig.RO6),
                   edge_density(ig.AK1),edge_density(ig.AK2),edge_density(ig.AK3),
@@ -493,37 +576,34 @@ haka_density <- c(edge_density(ig.RO1),edge_density(ig.RO2),edge_density(ig.RO3)
 haka_density <- as.data.frame(haka_density)
 
 
-#Dataframe building
+# Dataframe building
 plot<-as.data.frame(c("RO1","RO2","RO3","RO4","RO5","RO6",
                       "AK1","AK2","AK3","AK4","AK5","AK6"))
 hab_type <- as.data.frame(rep(c("Remnant Forest","Restored Forest"),each=12))
 sample_type<- as.data.frame(rep(c("soil"),each=6,times=2))
 
+# add in MEAN traits for each plot, in each network
 fungal_networks <- cbind(plot,hab_type,sample_type,haka_centrality, haka_connectedness, haka_density)
 colnames(fungal_networks) <- c("Plot","HabitatType","SampleType","Centrality","Connectedness","Density")
 
 
 ## Welch t-tests
-#Centrality
-centrality_between_hab <- t.test(ig.RO_between,ig.AK_between,paired=FALSE, var.equal=FALSE)
-centrality_between_hab # similar 'betweenness' by habitat
+# Centrality by plots
+centrality_habitat <- t.test(subset(fungal_networks, HabitatType == "Remnant Forest")$Centrality,
+                                subset(fungal_networks, HabitatType == "Restored Forest")$Centrality,
+                                paired=FALSE, var.equal=FALSE)
 
+# Connectedness by plots
+connectedness_habitat <- t.test(subset(fungal_networks, HabitatType == "Remnant Forest")$Connectedness,
+                                subset(fungal_networks, HabitatType == "Restored Forest")$Connectedness,
+                                paired=FALSE, var.equal=FALSE)
+connectedness_habitat
 
-# COMES LATER
-connectedness_habitat <- t.test(subset(obs_fungal_networks,
-                                         HabitatType == "Remnant Forest")$Connectedness,
-                                  subset(obs_fungal_networks,
-                                         HabitatType == "Restored Forest")$Connectedness,
-                                  paired=FALSE, var.equal=FALSE)
-connectedness_within_AK
-
-#Density
-Density_between_hab_roots <- t.test(subset(fungal_networks,
-                                           HabitatType == "Restored Forest" & SampleType == "roots")$Density,
-                                    subset(fungal_networks,
-                                           HabitatType == "Remnant Forest" & SampleType == "roots")$Density,
+# Density by plots
+Density_habitat <- t.test(subset(fungal_networks, HabitatType == "Restored Forest")$Density,
+                                    subset(fungal_networks, HabitatType == "Remnant Forest")$Density,
                                     paired=FALSE, var.equal=FALSE)
-Density_between_hab_roots
+Density_habitat
 
 Density_between_hab_soil <- t.test(subset(fungal_networks,
                                           HabitatType == "Restored Forest" & SampleType == "soil")$Density,
