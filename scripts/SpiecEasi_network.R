@@ -280,8 +280,12 @@ ggsave("figures/keystone.fig.pdf", width = 7, height = 4)
 ### RO: Claroideoglomeraceae spp. VTX00225 (8 node degrees, 193 Between-Central)
 ### AK: Acaulosporaceae spp. VTX00272, (11 node degrees, 547 Between-Central)
 haka_VT_soil_physeq # original full phyloseq object with VT species
+
+# relative abundance and set low counts to zero
+
 ESV_rel_abund <- transform_sample_counts(haka_VT_soil_physeq,function(x)x/sum(x))
 ESV_dataframe<-psmelt(ESV_rel_abund)
+ESV_dataframe$Abundance<- ifelse(ESV_dataframe$Abundance < 1e-5, 0, ESV_dataframe$Abundance) 
 
 Abund<-aggregate(Abundance~Species+HabitatType+Plot+TreeID+Longitude+Latitude, data=ESV_dataframe, FUN=mean)
 Abund.Claro<-Abund[(Abund$Species=="VTX00225"),] # RO
@@ -289,6 +293,7 @@ sum(Abund.Claro$Abundance > 0) # 6 trees
 
 Abund.Acaul<-Abund[(Abund$Species=="VTX00272"),] # AK 
 sum(Abund.Acaul$Abundance > 0) # 72 trees
+
 
 ##############################################################################################################
 ###### What the hell, let's Krig baby
@@ -310,6 +315,7 @@ AK.abund<-Abund.Acaul
 # bubble plot of abundance
 Keystone.bubble<-ggplot(AK.abund, aes(x = Longitude, y = Latitude)) + 
     geom_point(aes(color = HabitatType, size = Abundance), alpha = 0.5)+
+    coord_equal() +
     scale_color_manual(values = c("#88A550","#336B87")) + theme_bw()
 Keystone.bubble
 ggsave("figures/Keystone.bubble.png",width= 8,height=8, plot=Keystone.bubble)
@@ -318,18 +324,57 @@ ggsave("figures/Keystone.bubble.png",width= 8,height=8, plot=Keystone.bubble)
 
 # spatial coordinate object
 coordinates(AK.KEY)<- ~Longitude +Latitude # coordinates for samples of interest
+AK.KEY@bbox # extend of binding box
+
+Longitude<-c(-155.295, -155.335)
+Latitude<-c(19.810, 19.840)
+xy<-cbind(Longitude,Latitude)
+S<-SpatialPoints(xy)
+bbox(S)
+
+AK.KEY@bbox<-bbox(S) # expand binding box
 
 
-col.scheme.N <- colorRampPalette(c('dodgerblue', 'darkseagreen2', 'gray5'))(6)
+col.scheme.N <- colorRampPalette(c("white", "dodgerblue",'red'))(20)
 Grid.AK.KEY <- spsample(AK.KEY, type='regular', n=1e4)
 gridded(Grid.AK.KEY) <- TRUE
 
 krig.Key <- krige(Abundance ~ 1, AK.KEY, Grid.AK.KEY) # ordinary kriging
 plot(variogram(Abundance ~ 1, AK.KEY)) # variogram
 
-plot.krig.Key<-spplot(krig.Key["var1.pred"], col.regions=colorRampPalette(col.scheme.N), 
-                         main="AK keystone"); plot.krig.Key
-dev.copy(pdf, "figures/plot.krig.Key.pdf", height=6, width=8)
+
+
+# SP plot
+rv = list("sp.polygons", krig.Key, fill = "blue", alpha = 0.1)
+text1 = list("sp.text", c(-155.3,19.816), "0", cex = .5, which = 1)
+text2 = list("sp.text", c(-155.298,19.816), "500 m", cex = .5, which = 1)
+scale = list("SpatialPolygonsRescale", layout.scale.bar(), 
+             offset = c(-155.3, 19.816), scale = 500, fill=c("transparent","black"), which = 1)
+
+# levels for overlap
+hab.cols<-c("gray20", "chartreuse3")
+levs<-as.factor(AK.KEY$HabitatType)
+
+spl <- list('sp.points', AK.KEY, cex=0.5, pch=21, col=c("gray20", "chartreuse3")[levs])
+
+plot.krig.Key<- spplot(krig.Key["var1.pred"], col.regions=colorRampPalette(col.scheme.N), 
+                       sp.layout=spl, main="Keystone Fungal Taxa", col=NA, 
+                       scales=list(draw = TRUE))
+plot.krig.Key
+update(plot.krig.Key, key=simpleKey(levels(AK.KEY$HabitatType), points=FALSE, columns=1,
+                                    col=c("gray20", "chartreuse3"), space='top'))
+dev.copy(pdf, "figures/plot.krig.Key3.pdf", height=5, width=6.5)
+dev.off()
+
+###
+# colors
+plot(krig.Key["var1.pred"], col=col.scheme.N, zlim=c(0,0.016), border=NA, axes=TRUE, ylim=c(19.81, 19.84), xlim=)
+title("Hakalau Keystone Fungal Taxa")
+points(AK.KEY, col=cols[levs], pch=21, cex=0.5, lwd=0.2)
+legend("top", legend=levels(AK.KEY$HabitatType), col=cols, pch=21, border=NA, pt.lwd=2, box.lty=0, bg="transparent")
+
+
+dev.copy(pdf, "figures/plot.krig.Key2.pdf", height=5, width=5)
 dev.off()
 
 
