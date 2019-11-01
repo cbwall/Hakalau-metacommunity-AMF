@@ -2,20 +2,92 @@
 ### Composite co-occurrence networks (habitat type x sample type) for visual and identifying keystone sp ###
 ############################################################################################################
 
-### SpiecEasi ###
-library(devtools)
+###### ###### ###### ###### 
+########## packages
+###### ###### ###### ###### 
+
+if (!require("pacman")) install.packages("pacman"); library(pacman) # for rapid install if not in library
+if (!require("BiocManager")) install.packages("BiocManager") # for buoinformatic packages
+if (!require("devtools")) install.packages("devtools") # for developement tools
 install_github("zdk123/SpiecEasi")
-library(SpiecEasi)
-library(igraph)
-library(car)
-library(huge)
-library(MASS)
-library(Matrix)
-library(RColorBrewer)
-library(ggplot2)
-library(scales)
+
+devtools::install_github('oswaldosantos/ggsn')
+
+pacman::p_load("ade4", "multtest","car", "phyloseq","rhdf5","ggplot2","colorspace","stringi", "geosphere", 
+               "ggplot2", "ggmap", "dplyr", "gridExtra", "geosphere", "sf", "raster", "spData", "huge",
+               "tmap", "leaflet", "mapview", "shiny", "fossil","igraph","SpiecEasi", "RgoogleMaps", "devtools", "ggsn", "vegan", "multcomp",
+               "dplyr", "grid", "scales", "gridExtra", "emmeans", "Matrix", "MASS", "multcompView", "ggpubr", "Rmisc", "purrr",
+               "RVAideMemoire", "RColorBrewer", "vegan")
+
 
 ############## Using phyloseq
+#####################
+### SEQUENCE DATA ###
+#####################
+
+###################################
+####Import files and pre-process###
+###################################
+
+#Import files generated in QIIME
+otu <- as.matrix(read.csv("data/haka_soil_ESV_table.csv", header = TRUE,row.names = 1))
+haka_otu <- t(otu)
+taxmat <- as.matrix(read.csv("data/haka_soil_taxonomy.csv", header = TRUE,row.names = 1))
+sample <- haka_meta
+all.equal(rownames(haka_otu), rownames(sample))
+
+#Subset sample file to contain only the same rows as the otu file. Samples have been filtered out in
+#QIIME for various reasons (too few reads, no Glom hits etc.)
+
+#First create a vector of otu file rownames and call it "keep"
+rows_to_keep<-rownames(haka_otu)
+
+#Then subset sample file using the keep vector
+sample<-sample[rows_to_keep,]
+all.equal(rownames(haka_otu), rownames(sample))
+
+#Order host names how you want them to appear in figures
+sample$Host<- factor(sample$Host,levels=c("Metrosideros polymorpha", "Acacia koa", "Coprosma rhynchocarpa", 
+                                          "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"),
+                     labels=c("Metrosideros polymorpha", "Acacia koa", "Coprosma rhynchocarpa", 
+                              "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"))
+
+#Write subsetted sample data as a dataframe
+sampledata = sample_data(data.frame(Transect=sample$Transect, HabitatType=sample$HabitatType,
+                                    Plot = sample$Plot, lat = sample$lat, lon = sample$lon, 
+                                    TreeID= sample$TreeID, Host= sample$Host, 
+                                    Bearing= sample$Bearing, Distance= sample$Distance,
+                                    xCoords= sample$xCoords, yCoords= sample$yCoords,
+                                    SampleType=sample$SampleType,
+                                    OM= sample$OM, N= sample$N, P= sample$P.ppm, K= sample$K.ppm,
+                                    Mg= sample$Mg.ppm, Ca= sample$Ca.ppm, Na= sample$Na.ppm, S= sample$S.ppm,
+                                    pH= sample$pH,
+                                    H= sample$H, CEC= sample$CationExchangeCapacity,
+                                    K.cation= sample$K.cation, Mg.cation= sample$Mg.cation,
+                                    Ca.cation= sample$Ca.cation, H.cation= sample$H.cation,
+                                    Na.cation= sample$Na.cation, Longitude= sample$Longitude, 
+                                    Latitude= sample$Latitude, stringsAsFactors = FALSE))
+
+sample$Hab.by.hot<-interaction(sample$HabitatType, sample$Host)
+
+row.names(sampledata) <- row.names(sample)
+
+
+#Change each file to the phyloseq format
+OTU = otu_table(haka_otu, taxa_are_rows = FALSE)
+physeq = phyloseq(OTU)
+TAX = tax_table(taxmat)
+haka_soil_physeq = merge_phyloseq(OTU, sampledata, TAX)
+
+#Create new physeq object working at only the species level taxonomy. Collapses all ESVs identified as the same species
+haka_VT_soil_physeq <- tax_glom(haka_soil_physeq,"Species")
+
+
+
+
+###################
+################### Subset data for network analysis
+###################
 
 ### Subset phyloseq object into different hab types and then by soil--using virtual taxa
 RO.physeq = subset_samples(haka_VT_soil_physeq,HabitatType == "Remnant Forest")
