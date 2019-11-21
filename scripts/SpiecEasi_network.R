@@ -14,8 +14,8 @@ install_github("zdk123/SpiecEasi")
 devtools::install_github('oswaldosantos/ggsn')
 
 pacman::p_load("ade4", "multtest","car", "phyloseq","rhdf5","ggplot2","colorspace","stringi", "geosphere", 
-               "ggplot2", "ggmap", "dplyr", "gridExtra", "geosphere", "sf", "raster", "spData", "huge",
-               "tmap", "leaflet", "mapview", "shiny", "fossil","igraph","SpiecEasi", "RgoogleMaps", "devtools", "ggsn", "vegan", "multcomp",
+               "ggplot2", "ggmap", "dplyr", "gridExtra", "geosphere", "sf", "raster", "spData", "cowplot", "huge",
+               "tmap", "leaflet", "mapview", "shiny", "fossil","igraph","SpiecEasi", "scales", "RgoogleMaps", "devtools", "ggsn", "vegan", "multcomp",
                "dplyr", "grid", "scales", "gridExtra", "emmeans", "Matrix", "MASS", "multcompView", "ggpubr", "Rmisc", "purrr",
                "RVAideMemoire", "RColorBrewer", "vegan")
 
@@ -81,7 +81,6 @@ haka_soil_physeq = merge_phyloseq(OTU, sampledata, TAX)
 
 #Create new physeq object working at only the species level taxonomy. Collapses all ESVs identified as the same species
 haka_VT_soil_physeq <- tax_glom(haka_soil_physeq,"Species")
-
 
 
 
@@ -268,7 +267,7 @@ RO.fam <- as.data.frame(V(ig.RO)$Family)
 RO.species <- as.data.frame(net_tax$Species[match(V(ig.RO)$name,net_tax$OTU)])
 RO.no.samples <- as.data.frame(V(ig.RO)$no.samples)
 sample_data(RO.physeq)
-RO.total.samples <- as.data.frame(rep(237),times=162)
+RO.total.samples <- as.data.frame(rep(212),times=130) # 212 sample, 130 taxa
 RO.keystone <- cbind(RO.between,RO.degree,RO.rel.abund,RO.fam,RO.species,RO.no.samples,RO.total.samples)
 rownames(RO.keystone) <- V(ig.RO)$name
 colnames(RO.keystone) <- c("Betweenness","Degree","RelativeAbundance","Family","Species","No.Samples","TotalSamples")
@@ -285,7 +284,7 @@ AK.fam <- as.data.frame(V(ig.AK)$Family)
 AK.species <- as.data.frame(net_tax$Species[match(V(ig.AK)$name,net_tax$OTU)])
 AK.no.samples <- as.data.frame(V(ig.AK)$no.samples)
 sample_data(AK.physeq)
-AK.total.samples <- as.data.frame(rep(237),times=162)
+AK.total.samples <- as.data.frame(rep(264),times=130) # 264 samples, 130 taxa
 AK.keystone <- cbind(AK.between,AK.degree,AK.rel.abund,AK.fam,AK.species,AK.no.samples,AK.total.samples)
 rownames(AK.keystone) <- V(ig.AK)$name
 colnames(AK.keystone) <- c("Betweenness","Degree","RelativeAbundance","Family","Species","No.Samples","TotalSamples")
@@ -696,7 +695,7 @@ haka_density <- as.data.frame(haka_density)
 # Dataframe building
 plot<-as.data.frame(c("RO1","RO2","RO3","RO4","RO5","RO6",
                       "AK1","AK2","AK3","AK4","AK5","AK6"))
-hab_type <- as.data.frame(rep(c("Remnant Forest","Restored Forest"),each=12))
+hab_type <- as.data.frame(rep(c("Remnant Forest","Restored Forest"),each=6))
 sample_type<- as.data.frame(rep(c("soil"),each=6,times=2))
 
 # add in MEAN traits for each plot, in each network
@@ -709,6 +708,7 @@ colnames(fungal_networks) <- c("Plot","HabitatType","SampleType","Centrality","C
 centrality_habitat <- t.test(subset(fungal_networks, HabitatType == "Remnant Forest")$Centrality,
                                 subset(fungal_networks, HabitatType == "Restored Forest")$Centrality,
                                 paired=FALSE, var.equal=FALSE)
+centrality_habitat
 
 # Connectedness by plots
 connectedness_habitat <- t.test(subset(fungal_networks, HabitatType == "Remnant Forest")$Connectedness,
@@ -730,14 +730,14 @@ Density_between_hab_soil <- t.test(subset(fungal_networks,
 Density_between_hab_soil
 
 Density_within_RO <- t.test(subset(fungal_networks,
-                                   HabitatType == "Remnant Forest" & SampleType == "roots")$Density,
+                                   HabitatType == "Remnant Forest" & SampleType == "soil")$Density,
                             subset(fungal_networks,
                                    HabitatType == "Remnant Forest" & SampleType == "soil")$Density,
                             paired=FALSE, var.equal=FALSE)
 Density_within_RO
 
 Density_within_AK <- t.test(subset(fungal_networks,
-                                   HabitatType == "Restored Forest" & SampleType == "roots")$Density,
+                                   HabitatType == "Restored Forest" & SampleType == "soil")$Density,
                             subset(fungal_networks,
                                    HabitatType == "Restored Forest" & SampleType == "soil")$Density,
                             paired=FALSE, var.equal=FALSE)
