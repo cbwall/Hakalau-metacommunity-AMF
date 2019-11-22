@@ -563,19 +563,19 @@ dev.off()
 
 ######################
 # entire dataset
-haka_metadata # metadata
+haka_meta # metadata
 hak_otu<-t(otu) # transpose
 
 # merge to have all data together
-Study.dat<-merge(haka_metadata, hak_otu, by = "row.names", all = TRUE)
+Study.dat<-merge(haka_meta, hak_otu, by = "row.names", all = TRUE)
 Study.dat<-Study.dat[!is.na(Study.dat[34]),]
 
 #separate dataframes
-haka_met_mant<-Study.dat[,c(1:33)] # the meta data
-hak_otu<-Study.dat[,c(34:1469)] # OTU data
+haka_met_mant<-Study.dat[,c(1:32)] # the meta data
+hak_otu<-Study.dat[,c(33:1468)] # OTU data
 
 # geographic distance
-dists_km<-earth.dist(haka_met_mant[,32:33], dist=TRUE)
+dists_km<-earth.dist(haka_met_mant[,31:32], dist=TRUE)
 dists_m <- (dists_km * 1000)
 dists_m <- as.matrix(dists_m)
 rownames(dists_m) <- rownames(haka_met_mant)
@@ -595,7 +595,7 @@ Study.df<-data.frame(Distance=geomat[lower.tri(geomat)],
                   BrayCurtis= study_bc_mat[lower.tri(study_bc_mat)])
 
 ##############
-#Generate plots for all elevations combined
+#Generate plots for all samples combined
 Study_dist_plot<- ggplot(Study.df, aes(x=log(Distance+1), y=BrayCurtis)) +
   geom_point(size=1,alpha=0.5) +
   stat_smooth(method = "lm", size = 1, se=F) +  
@@ -633,11 +633,11 @@ RO<- merge(RO_meta_data, ROdat, by = "row.names", all = TRUE) # all data merged 
 #drop NAs from samples that have no sequence data
 RO<-RO[!is.na(RO[34]),]
 
-RO_meta<-RO[,c(1:33)] # the meta data
-RO_otu<-RO[,c(34:1469)] # OTU data
+RO_meta<-RO[,c(1:32)] # the meta data
+RO_otu<-RO[,c(33:1468)] # OTU data
 
 #Calculate geographic distances among sample points on subset data
-RO_dists_km<-earth.dist(RO_meta[,32:33], dist=TRUE)
+RO_dists_km<-earth.dist(RO_meta[,31:32], dist=TRUE)
 RO_dists_m <- (RO_dists_km * 1000)
 RO_dists_m <- as.matrix(RO_dists_m)
 rownames(RO_dists_m) <- rownames(RO_meta)
@@ -650,7 +650,7 @@ RO_dists_m<-as.dist(RO_dists_m) # make distance matrix
 ######################## AK 
 
 ## subset the OTU file to give only AK
-AK_meta_data <-subset(haka_metadata, HabitatType== "Restored Forest")
+AK_meta_data <-subset(haka_meta, HabitatType== "Restored Forest")
 
 AKdat<-t(otu[,grep("^AK", colnames(otu))]) # transposed data with only AK
 samples.AK<-sample[grep("^AK", rownames(sample)),] # only rows with "AK"
@@ -660,10 +660,10 @@ AK<- merge(AK_meta_data, AKdat, by = "row.names", all = TRUE) # all data merged 
 #drop NAs from samples that have no sequence data
 AK<-AK[!is.na(AK[34]),]
 
-AK_meta<-AK[,c(1:33)] # the meta data
-AK_otu<-AK[,c(34:1469)] # OTU data
+AK_meta<-AK[,c(1:32)] # the meta data
+AK_otu<-AK[,c(33:1468)] # OTU data
 
-AK_dists_km<-earth.dist(AK_meta[,32:33],dist=TRUE)
+AK_dists_km<-earth.dist(AK_meta[,31:32],dist=TRUE)
 AK_dists_m <- (AK_dists_km * 1000)
 AK_dists_m <- as.matrix(AK_dists_m)
 rownames(AK_dists_m) <- rownames(AK_meta)
@@ -720,7 +720,7 @@ RO_dist_plot<- ggplot(RO_df,aes(x=log(Distance+1), y=BrayCurtis)) + #color=Host
   #scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
   geom_point(size=1,alpha=0.5) +
   stat_smooth(method = "lm", size = 1, se=F) +  
-  theme(text=element_text(colour="black",size=15)) + 
+  theme(text=element_text(colour="black",size=12)) + 
   scale_y_continuous(name="Bray Curtis Dissimilarity",breaks=seq(0,1,0.25),limits=c(0,1)) +
   scale_x_continuous(name="log(Distance (m)+1)",breaks=seq(0,8,1),limits=c(0,8)) +
   theme(axis.text.x=element_text(colour="black",size=12)) +
@@ -732,7 +732,7 @@ RO_dist_plot<- ggplot(RO_df,aes(x=log(Distance+1), y=BrayCurtis)) + #color=Host
         panel.background=element_blank())
 
 plot(RO_dist_plot)
-ggsave("figures/log.RO_dist_decay.tiff", 
+ggsave("figures/log.RO_dist_decay.pdf", 
        plot = RO_dist_plot, width = 5, height = 5)
 
 
@@ -752,7 +752,7 @@ AK_dist_plot<- ggplot(AK_df,aes(x=log(Distance+1),y=BrayCurtis))+ #color=Host
         panel.background=element_blank())
 
 plot(AK_dist_plot)
-ggsave("figures/AK_distance_decay.tiff", 
+ggsave("figures/log.AK_dist_decay.pdf", 
        plot = AK_dist_plot, width = 5, height = 5)
 
 #Analysis of slopes
