@@ -33,84 +33,48 @@ pacman::p_load("ade4", "multtest","phyloseq","rhdf5","ggplot2","colorspace","str
 ##########################################################################
 
 
+##########################
+####   Hawaii Map     ####
+##########################
+
 # Load API key (confidential)
 API.key<-read.csv("data/API_Egan.csv")
 API.key<-API.key[1,1]
 
 register_google(key=API.key)
-hi_map<-get_map(location=c(-157,20.5),zoom=7,maptype="terrain",color="bw")
+hi_map<-get_map(location=c(-157,20.5),zoom=7,maptype="satellite",color="color")
 hi_map_for_man <- ggmap(hi_map) +
-  geom_point(aes(x = -155.320, y = 19.83),pch=23,colour="black",fill="red", size = 2, stroke=0.5) +
+  geom_point(aes(x = -155.320, y = 19.83), pch=23,colour="black",fill="red", size = 2, stroke=0.5) +
   xlab("Longitude") + ylab("Latitude") +
+  scale_y_continuous(limits=c(18.8, 22.2))+
+  scale_x_continuous(limits=c(-160.2, -154)) +
   theme(axis.text=element_text(colour="black",size=8)) +
-  theme(axis.title=element_text(colour="black",size=8))
+  theme(axis.title=element_text(colour="black",size=8)) +
+  ggsn::scalebar(x.min=-160.2, x.max=-154, y.min=18.8, y.max=22.2, dist=50, dist_unit="km", transform=TRUE,
+                 st.bottom=FALSE, st.size=2, box.fill=c("gray50", "white"), model="WGS84",st.color="white", border.size=0.5)
+
 plot(hi_map_for_man)
-ggsave("figures/hi_map.tiff",width= 6,height=5, limitsize=TRUE, plot=hi_map_for_man)
+ggsave("figures/hi_map.tiff", width= 5,height=3, plot=hi_map_for_man)
 
 
-hakalau_map_zoom <-get_map(location=c(-155.320,19.83),zoom=14,maptype="satellite",color="bw")
-haka_map <- ggmap(hakalau_map_zoom) +
-  xlab("Longitude") + ylab("Latitude") +
-  theme(axis.text=element_text(colour="black",size=8)) +
-  theme(axis.title=element_text(colour="black",size=8))
-plot(haka_map)
-
-
-   ##########################
-   ####   Haka hab types ####
-   ##########################
-
-haka_hab_types <-read.csv("data/haka_big_transect_data.csv", header=TRUE, row.names=1)
-haka_hab_types$NewHabType<- factor(haka_hab_types$NewHabType,levels=c("Open pasture","Koa + Grass","Koa + Understory",
-                                                           "Restored ohia","Remnant koa forest",
-                                                           "Remnant ohia forest"),
-                                labels=c("Open pasture","Koa + Grass","Koa + Understory",
-                                         "Restored ohia forest","Remnant koa dominated forest",
-                                         "Remnant ohia dominated forest"))
-
-hab_types_plot <- haka_map +
-  geom_point(data=haka_hab_types,aes(x=Longitude,y=Latitude,fill=NewHabType),pch=21,stroke=0.3,colour="white",size=2) +
-  scale_fill_manual(values=c("#F7AF51","#97D8E5","#1C84B5","#336B87","#88A550","dark green")) +
-  theme(legend.text=element_text(size=6),legend.title = element_text(size=8)) +
-  xlab("Longitude") + ylab("Latitude") +
-  theme(axis.text=element_text(colour="black",size=8)) +
-  theme(axis.title=element_text(colour="black",size=8)) +
-  ggsn::scalebar(x.min=-155.345, x.max=-155.305, y.min=19.80, y.max=19.85, dist=1, dist_unit="km", transform=TRUE,
-           st.bottom=FALSE,model="WGS84",st.color="white")
-  
-plot(hab_types_plot)
-ggsave("figures/Haka_hab_types.tiff",width= 6,height=5,plot=hab_types_plot)
-
-hab_types_plot_no_legend <- haka_map +
-  geom_point(data=haka_hab_types,aes(x=Longitude,y=Latitude,fill=NewHabType),pch=21,stroke=0.3,colour="white",size=2) +
-  scale_fill_manual(values=c("#F7AF51","#97D8E5","#1C84B5","#336B87","#88A550","dark green")) +
-  theme(legend.position="none") +
-  xlab("Longitude") + ylab("Latitude") +
-  theme(axis.text=element_text(colour="black",size=8)) +
-  theme(axis.title=element_text(colour="black",size=8)) +
-  ggsn::scalebar(x.min=-155.345, x.max=-155.305, y.min=19.80, y.max=19.85, dist=1, dist_unit="km", transform=TRUE,
-           st.bottom=FALSE,model="WGS84",st.color="white") 
-
-plot(hab_types_plot_no_legend)
-ggsave("figures/Haka_hab_types_no_legend.tiff",width= 6,height=5,plot=hab_types_plot_no_legend)
-      
-
-
-      ##########################
-      ####   Plot locations ####
-      ##########################
+##########################
+####   Forest Plots   ####
+##########################
 
 haka_metadata <-read.csv("data/haka_soil_metadata.csv", header=TRUE, row.names=1)
 
 sampling_plots <- ggmap(hakalau_map_zoom) + 
   geom_point(data=haka_metadata,aes(x=lon,y=lat,fill=HabitatType),pch=21, stroke=0.3,colour="white",size=3) +
   scale_fill_manual(values=c("#88A550","#336B87")) +
-  theme(legend.position="none") +
+  theme(legend.text=element_text(size=6),legend.title = element_text(size=8), legend.key=element_blank()) +
   xlab("Longitude") + ylab("Latitude") +
+  scale_y_continuous(limits=c(19.81, 19.84)) +
+  scale_x_continuous(limits=c(-155.345, -155.295)) +
   theme(axis.text=element_text(colour="black",size=8)) +
   theme(axis.title=element_text(colour="black",size=8)) +
-  ggsn::scalebar(x.min=-155.345, x.max=-155.305, y.min=19.80, y.max=19.85, dist=1, dist_unit="km", transform=TRUE,
-           st.bottom=FALSE,model="WGS84",st.color="white") 
+  ggsn::scalebar(x.min=-155.345, x.max=-155.295, y.min=19.81, y.max=19.84, dist=0.5, dist_unit="km", transform=TRUE,
+                 st.bottom=FALSE, st.size=2, box.fill=c("gray50", "white"), model="WGS84",st.color="white", border.size=0.5) 
+
 
 plot(sampling_plots)
 ggsave("figures/Sampling_plots.tiff", width= 6, height=5, plot=sampling_plots)
@@ -143,6 +107,7 @@ write.csv(geog_dists_m,file="output/haka_dists.csv")
 haka_dists <- lower.tri(geog_dists_m)
 
          
+
 #####################
 ### SEQUENCE DATA ###
 #####################
