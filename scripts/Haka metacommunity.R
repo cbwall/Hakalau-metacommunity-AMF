@@ -54,12 +54,13 @@ hi_map_for_man <- ggmap(hi_map) +
                  st.bottom=FALSE, st.size=2, box.fill=c("gray50", "white"), model="WGS84",st.color="white", border.size=0.5)
 
 plot(hi_map_for_man)
-ggsave("figures/hi_map.tiff", width= 5,height=3, plot=hi_map_for_man)
+ggsave("figures/hi_map.pdf", width= 5,height=3, plot=hi_map_for_man)
 
 
 ##########################
 ####   Forest Plots   ####
 ##########################
+hakalau_map_zoom <-get_map(location=c(-155.320,19.83),zoom=14,maptype="satellite",color="color")
 
 haka_metadata <-read.csv("data/haka_soil_metadata.csv", header=TRUE, row.names=1)
 
@@ -72,12 +73,12 @@ sampling_plots <- ggmap(hakalau_map_zoom) +
   scale_x_continuous(limits=c(-155.345, -155.295)) +
   theme(axis.text=element_text(colour="black",size=8)) +
   theme(axis.title=element_text(colour="black",size=8)) +
-  ggsn::scalebar(x.min=-155.345, x.max=-155.295, y.min=19.81, y.max=19.84, dist=0.5, dist_unit="km", transform=TRUE,
-                 st.bottom=FALSE, st.size=2, box.fill=c("gray50", "white"), model="WGS84",st.color="white", border.size=0.5) 
-
+  ggsn::scalebar(x.min=-155.345, x.max=-155.295, y.min=19.81, y.max=19.84, dist=0.5, dist_unit="km",
+                 transform=TRUE, st.bottom=FALSE, st.size=2, box.fill=c("gray50", "white"), 
+                 model="WGS84",st.color="white", border.size=0.5) 
 
 plot(sampling_plots)
-ggsave("figures/Sampling_plots.tiff", width= 6, height=5, plot=sampling_plots)
+ggsave("figures/Sampling_plots.pdf", width= 6, height=5, plot=sampling_plots)
   
 
 
