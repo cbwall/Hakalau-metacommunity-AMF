@@ -43,3 +43,32 @@ hab_types_plot_no_legend <- haka_map +
 plot(hab_types_plot_no_legend)
 ggsave("figures/Haka_hab_types_no_legend.tiff",width= 6,height=5,plot=hab_types_plot_no_legend)
 
+
+############
+############
+
+
+#GLM with poisson error distribution to test for differences in Species richness in soil 
+soil_glm <- glm(Observed ~ HabitatType*Host, data=soil_rich, family = poisson(link="log")) 
+par(mfrow = c(2, 2))
+plot(soil_glm)
+chi.anova<-anova(soil_glm ,test="Chisq")
+chi.anova # Habitat:Host interaction
+
+#Create a unique level for every combination of site and treatment to do a post-hoc test on
+soil_rich$Hab.by.Host<- interaction(soil_rich$HabitatType, soil_rich$Host)
+soil_glm.2 <- glm(Observed ~ Hab.by.Host, data=soil_rich, family = poisson(link="log"))
+
+#Calculate EMM on interactions
+rich_emmeans <- emmeans(soil_glm.2, specs="Hab.by.Host")
+rich_posthoc.pairs = pairs(rich_emmeans)
+
+#Create letters for interaction differences
+rich_mc_letters<-cld(rich_emmeans,Letters="abcdefg")
+rich_mc_letters
+
+# What differences exist with species and habitat interaction?
+# less alpha diversity for Cheirodendron trigynum (CH) in RO (i.e, RO.CH) compared to other groups.
+# slightly higher in Metrosideros polymorpha from RO (i.e., RO.ME) 
+# slightly highest in Grass from AK (i.e., AK.GR)
+
