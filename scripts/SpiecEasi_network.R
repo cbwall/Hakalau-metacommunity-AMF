@@ -20,6 +20,161 @@ pacman::p_load("ade4", "multtest","car", "phyloseq","rhdf5","ggplot2","colorspac
                "RVAideMemoire", "RColorBrewer", "vegan")
 
 
+
+
+### Fast Melt
+
+# Define some functions for quick taxa summary
+
+fast_melt = function(physeq,
+                     includeSampleVars = character(),
+                     omitZero = FALSE){
+    require("phyloseq")
+    require("data.table")
+    # supports "naked" otu_table as `physeq` input.
+    otutab = as(otu_table(physeq), "matrix")
+    if(!taxa_are_rows(physeq)){otutab <- t(otutab)}
+    otudt = data.table(otutab, keep.rownames = TRUE)
+    setnames(otudt, "rn", "TaxaID")
+    # Enforce character TaxaID key
+    otudt[, TaxaIDchar := as.character(TaxaID)]
+    otudt[, TaxaID := NULL]
+    setnames(otudt, "TaxaIDchar", "TaxaID")
+    # Melt count table
+    mdt = melt.data.table(otudt, 
+                          id.vars = "TaxaID",
+                          variable.name = "SampleID",
+                          value.name = "count")
+    if(omitZero){
+        # Omit zeroes and negative numbers
+        mdt <- mdt[count > 0]
+    }
+    # Omit NAs
+    mdt <- mdt[!is.na(count)]
+    # Calculate relative abundance
+    mdt[, RelativeAbundance := count / sum(count), by = SampleID]
+    if(!is.null(tax_table(physeq, errorIfNULL = FALSE))){
+        # If there is a tax_table, join with it. Otherwise, skip this join.
+        taxdt = data.table(as(tax_table(physeq, errorIfNULL = TRUE), "matrix"), keep.rownames = TRUE)
+        setnames(taxdt, "rn", "TaxaID")
+        # Enforce character TaxaID key
+        taxdt[, TaxaIDchar := as.character(TaxaID)]
+        taxdt[, TaxaID := NULL]
+        setnames(taxdt, "TaxaIDchar", "TaxaID")
+        # Join with tax table
+        setkey(taxdt, "TaxaID")
+        setkey(mdt, "TaxaID")
+        mdt <- taxdt[mdt]
+    }
+    # includeSampleVars = c("DaysSinceExperimentStart", "SampleType")
+    # includeSampleVars = character()
+    # includeSampleVars = c()
+    # includeSampleVars = c("aksjdflkas") 
+    wh.svars = which(sample_variables(physeq) %in% includeSampleVars)
+    if( length(wh.svars) > 0 ){
+        # Only attempt to include sample variables if there is at least one present in object
+        sdf = as(sample_data(physeq), "data.frame")[, wh.svars, drop = FALSE]
+        sdt = data.table(sdf, keep.rownames = TRUE)
+        setnames(sdt, "rn", "SampleID")
+        # Join with long table
+        setkey(sdt, "SampleID")
+        setkey(mdt, "SampleID")
+        mdt <- sdt[mdt]
+    }
+    setkey(mdt, "TaxaID")
+    return(mdt)
+}
+
+summarize_taxa = function(physeq, Rank, GroupBy = NULL){
+    require("phyloseq")
+    require("data.table")
+    Rank <- Rank[1]
+    if(!Rank %in% rank_names(physeq)){
+        message("The argument to `Rank` was:\n", Rank,
+                "\nBut it was not found among taxonomic ranks:\n",
+                paste0(rank_names(physeq), collapse = ", "), "\n",
+                "Please check the list shown above and try again.")
+    }
+    if(!is.null(GroupBy)){
+        GroupBy <- GroupBy[1]
+        if(!GroupBy %in% sample_variables(physeq)){
+            message("The argument to `GroupBy` was:\n", GroupBy,
+                    "\nBut it was not found among sample variables:\n",
+                    paste0(sample_variables(physeq), collapse = ", "), "\n",
+                    "Please check the list shown above and try again.")
+        }
+    }
+    # Start with fast melt
+    mdt = fast_melt(physeq)
+    if(!is.null(GroupBy)){
+        # Add the variable indicated in `GroupBy`, if provided.
+        sdt = data.table(SampleID = sample_names(physeq),
+                         var1 = get_variable(physeq, GroupBy))
+        setnames(sdt, "var1", GroupBy)
+        # Join
+        setkey(sdt, SampleID)
+        setkey(mdt, SampleID)
+        mdt <- sdt[mdt]
+    }
+    # Summarize
+    if(!is.null(GroupBy)){
+        summarydt = mdt[, list(meanRA = mean(RelativeAbundance),
+                               sdRA = sd(RelativeAbundance),
+                               minRA = min(RelativeAbundance),
+                               maxRA = max(RelativeAbundance)),
+                        by = c(Rank, GroupBy)]
+    } else {
+        Nsamples = nsamples(physeq)
+        # No GroupBy argument, can be more precise with the mean, sd, etc.
+        summarydt = mdt[, list(meanRA = sum(RelativeAbundance) / Nsamples,
+                               sdRA = sd(c(RelativeAbundance, numeric(Nsamples - .N))),
+                               minRA = ifelse(test = .N < Nsamples,
+                                              yes = 0L, 
+                                              no = min(RelativeAbundance)),
+                               maxRA = max(RelativeAbundance)),
+                        by = c(Rank)]
+    }
+    return(summarydt)
+}
+
+plot_taxa_summary = function(physeq, Rank, GroupBy = NULL){
+    require("phyloseq")
+    require("data.table")
+    require("ggplot2")
+    # Get taxa summary table 
+    dt1 = summarize_taxa(physeq, Rank = Rank, GroupBy = GroupBy)
+    # Set factor appropriately for plotting
+    RankCol = which(colnames(dt1) == Rank)
+    setorder(dt1, -meanRA)
+    dt1[, RankFac := factor(dt1[[Rank]], 
+                            levels = rev(dt1[[Rank]]))]
+    dt1[, ebarMax := max(c(0, min(meanRA + sdRA))), by = eval(Rank)]
+    dt1[, ebarMin := max(c(0, min(meanRA - sdRA))), by = eval(Rank)]
+    # Set zeroes to one-tenth the smallest value
+    ebarMinFloor = dt1[(ebarMin > 0), min(ebarMin)]
+    ebarMinFloor <- ebarMinFloor / 10
+    dt1[(ebarMin == 0), ebarMin := ebarMinFloor]
+    
+    pRank = ggplot(dt1, aes(x = meanRA, y = RankFac)) +
+        scale_x_log10() +
+        xlab("Mean Relative Abundance") +
+        ylab(Rank) +
+        theme_bw()
+    if(!is.null(GroupBy)){
+        # pRank <- pRank + facet_wrap(facets = as.formula(paste("~", GroupBy)))
+        pRank <- pRank + geom_point(mapping = aes_string(colour = GroupBy),
+                                    size = 5)
+    } else {
+        # Don't include error bars for faceted version
+        pRank <- pRank + geom_errorbarh(aes(xmax = ebarMax,
+                                            xmin = ebarMin))
+    }
+    return(pRank)
+}
+################
+
+
+
 ############## Using phyloseq
 #####################
 ### SEQUENCE DATA ###
@@ -394,8 +549,8 @@ ggsave("figures/Keystone.bubble.png",width= 8,height=8, plot=Keystone.bubble)
 
 
 # spatial coordinate object
-coordinates(AK.KEY)<- ~Longitude +Latitude # coordinates for samples of interest
-AK.KEY@bbox # extend of binding box
+coordinates(AK.abund)<- ~Longitude +Latitude # coordinates for samples of interest
+AK.abund@bbox # extend of binding box
 
 Longitude<-c(-155.295, -155.335)
 Latitude<-c(19.810, 19.840)
@@ -403,52 +558,39 @@ xy<-cbind(Longitude,Latitude)
 S<-SpatialPoints(xy)
 bbox(S)
 
-AK.KEY@bbox<-bbox(S) # expand binding box
+AK.abund@bbox<-bbox(S) # expand binding box 
 
 
-col.scheme.N <- colorRampPalette(c("white", "dodgerblue",'red'))(20)
-Grid.AK.KEY <- spsample(AK.KEY, type='regular', n=1e4)
+col.scheme.N <- colorRampPalette(c("white", "chartreuse3",'red'))(20)
+Grid.AK.KEY <- spsample(AK.abund, type='regular', n=1e4)
 gridded(Grid.AK.KEY) <- TRUE
 
-krig.Key <- krige(Abundance ~ 1, AK.KEY, Grid.AK.KEY) # ordinary kriging
-plot(variogram(Abundance ~ 1, AK.KEY)) # variogram
+krig.Key <- krige(Abundance ~ 1, AK.abund, Grid.AK.KEY) # ordinary kriging
+plot(variogram(Abundance ~ 1, AK.abund)) # variogram
 
 
 
 # SP plot
-rv = list("sp.polygons", krig.Key, fill = "blue", alpha = 0.1)
+rv = list("sp.polygons", krig.Key, fill = "chartreuse3", alpha = 0.1)
 text1 = list("sp.text", c(-155.3,19.816), "0", cex = .5, which = 1)
 text2 = list("sp.text", c(-155.298,19.816), "500 m", cex = .5, which = 1)
 scale = list("SpatialPolygonsRescale", layout.scale.bar(), 
              offset = c(-155.3, 19.816), scale = 500, fill=c("transparent","black"), which = 1)
 
 # levels for overlap
-hab.cols<-c("gray20", "chartreuse3")
-levs<-as.factor(AK.KEY$HabitatType)
+hab.cols<-c("gray20", "gray70")
+levs<-as.factor(AK.abund$HabitatType)
 
-spl <- list('sp.points', AK.KEY, cex=0.5, pch=21, col=c("gray20", "chartreuse3")[levs])
+spl <- list('sp.points', AK.abund, cex=0.5, pch=21, col=c("gray20", "gray70")[levs])
 
 plot.krig.Key<- spplot(krig.Key["var1.pred"], col.regions=colorRampPalette(col.scheme.N), 
                        sp.layout=spl, main="Keystone Fungal Taxa", col=NA, 
                        scales=list(draw = TRUE))
 plot.krig.Key
-update(plot.krig.Key, key=simpleKey(levels(AK.KEY$HabitatType), points=FALSE, columns=1,
-                                    col=c("gray20", "chartreuse3"), space='top'))
-dev.copy(pdf, "figures/plot.krig.Key3.pdf", height=5, width=6.5)
+update(plot.krig.Key, key=simpleKey(levels(AK.abund$HabitatType), points=FALSE, columns=1,
+                                    col=c("gray20", "gray70"), space='top'))
+dev.copy(png, "figures/plot.krig.Key3.png", height=500, width=600)
 dev.off()
-
-###
-# colors
-plot(krig.Key["var1.pred"], col=col.scheme.N, zlim=c(0,0.016), border=NA, axes=TRUE, ylim=c(19.81, 19.84), xlim=)
-title("Hakalau Keystone Fungal Taxa")
-points(AK.KEY, col=cols[levs], pch=21, cex=0.5, lwd=0.2)
-legend("top", legend=levels(AK.KEY$HabitatType), col=cols, pch=21, border=NA, pt.lwd=2, box.lty=0, bg="transparent")
-
-
-dev.copy(pdf, "figures/plot.krig.Key2.pdf", height=5, width=5)
-dev.off()
-
-
 
 
 
@@ -618,20 +760,10 @@ ig.AK_between <- igraph::betweenness(ig.AK,weights=E(ig.AK),normalized=TRUE)
 ig.RO_degree <- igraph::degree(ig.RO, mode="all", normalized=TRUE)
 ig.AK_degree <- igraph::degree(ig.AK, mode="all", normalized=TRUE)
 
-# Density: number of edges in a network divided by the total number of possible edges.
-ig.RO.AK.degree<- c(edge_density(ig.RO),edge_density(ig.AK))
-
 # Average Path Length: how long are paths around a network?
 average.path.length(ig.RO)
 average.path.length(ig.AK)
 
-#### T-tests
-# Welch Tests
-centrality_between_hab <- t.test(ig.RO_between,ig.AK_between, paired=FALSE, var.equal=FALSE)
-centrality_between_hab # signific, but barely. Diff 'betweenness' by habitat
-
-connect_degree_hab <- t.test(ig.RO_degree,ig.AK_degree, paired=FALSE, var.equal=FALSE)
-connect_degree_hab # NS similar 'degree nodes' by habitat
 
 #######################################################
 #####  CHARACTERISTICS  of Plot means in Habitats #####
@@ -683,14 +815,6 @@ haka_connectedness <- c(mean(ig.RO1_degree),mean(ig.RO2_degree),mean(ig.RO3_degr
         
 haka_connectedness <- as.data.frame(haka_connectedness)
 
-# Density
-haka_density <- c(edge_density(ig.RO1),edge_density(ig.RO2),edge_density(ig.RO3),
-                  edge_density(ig.RO4),edge_density(ig.RO5),edge_density(ig.RO6),
-                  edge_density(ig.AK1),edge_density(ig.AK2),edge_density(ig.AK3),
-                  edge_density(ig.AK4),edge_density(ig.AK5),edge_density(ig.AK6))
-
-haka_density <- as.data.frame(haka_density)
-
 
 # Dataframe building
 plot<-as.data.frame(c("RO1","RO2","RO3","RO4","RO5","RO6",
@@ -699,8 +823,8 @@ hab_type <- as.data.frame(rep(c("Remnant Forest","Restored Forest"),each=6))
 sample_type<- as.data.frame(rep(c("soil"),each=6,times=2))
 
 # add in MEAN traits for each plot, in each network
-fungal_networks <- cbind(plot,hab_type,sample_type,haka_centrality, haka_connectedness, haka_density)
-colnames(fungal_networks) <- c("Plot","HabitatType","SampleType","Centrality","Connectedness","Density")
+fungal_networks <- cbind(plot,hab_type,sample_type,haka_centrality, haka_connectedness)
+colnames(fungal_networks) <- c("Plot","HabitatType","SampleType","Centrality","Connectedness")
 
 
 ## Welch t-tests
@@ -715,32 +839,4 @@ connectedness_habitat <- t.test(subset(fungal_networks, HabitatType == "Remnant 
                                 subset(fungal_networks, HabitatType == "Restored Forest")$Connectedness,
                                 paired=FALSE, var.equal=FALSE)
 connectedness_habitat
-
-# Density by plots
-Density_habitat <- t.test(subset(fungal_networks, HabitatType == "Restored Forest")$Density,
-                                    subset(fungal_networks, HabitatType == "Remnant Forest")$Density,
-                                    paired=FALSE, var.equal=FALSE)
-Density_habitat
-
-Density_between_hab_soil <- t.test(subset(fungal_networks,
-                                          HabitatType == "Restored Forest" & SampleType == "soil")$Density,
-                                   subset(fungal_networks,
-                                          HabitatType == "Remnant Forest" & SampleType == "soil")$Density,
-                                   paired=FALSE, var.equal=FALSE)
-Density_between_hab_soil
-
-Density_within_RO <- t.test(subset(fungal_networks,
-                                   HabitatType == "Remnant Forest" & SampleType == "soil")$Density,
-                            subset(fungal_networks,
-                                   HabitatType == "Remnant Forest" & SampleType == "soil")$Density,
-                            paired=FALSE, var.equal=FALSE)
-Density_within_RO
-
-Density_within_AK <- t.test(subset(fungal_networks,
-                                   HabitatType == "Restored Forest" & SampleType == "soil")$Density,
-                            subset(fungal_networks,
-                                   HabitatType == "Restored Forest" & SampleType == "soil")$Density,
-                            paired=FALSE, var.equal=FALSE)
-Density_within_AK
-
 

@@ -341,24 +341,24 @@ AK.PCNMD<-PC.NMD[(PC.NMD$HabitatType=="Restored Forest"),]
 mod.AK<-lm(PC1~NMDS1, data=AK.PCNMD); anova(mod.AK)
 
 # full model, used in plotting
-mod<-lm(PC1~NMDS1:HabitatType, data=PC.NMD)
+mod<-lm(PC1~NMDS1*HabitatType, data=PC.NMD)
 anova(mod)
 
 
-int<-coef(summary(mod))[1]
-slope.RO<-coef(summary(mod))[2]
-slope.AK<-coef(summary(mod))[3] # HabitatType Restored Forest
-slope.int<-coef(summary(mod))[4]
+int<-coef(summary(mod))[1] # intercept
+NMDS1.coef<-coef(summary(mod))[2] # NMDS
+HabAK.coef<-coef(summary(mod))[3] # HabitatType Restored Forest
+NMDS.AK.coef<-coef(summary(mod))[4] # NMDS1:HabitatTypeRestored Forest
 
 library(plotrix)
 plot(PC1~NMDS1, data=PC.NMD, pch=16,
      col=Hab.col[as.factor(HabitatType)],
      ylab="PC1 (environment)", 
      xlab="NMDS1 (VT Bray-Curtis)")
-ablineclip(int, slope.RO, col=NMDS.col[1], lwd=2, 
+ablineclip(int, (NMDS1.coef) , col=NMDS.col[1], lwd=2, 
            x1 = min(PC.NMD$NMDS1[PC.NMD$HabitatType=="Remnant Forest"], na.rm=T), 
            x2 = max(PC.NMD$NMDS1[PC.NMD$HabitatType=="Remnant Forest"], na.rm=T)) # RO model
-ablineclip(int, slope.AK, col=NMDS.col[2], lwd=2, 
+ablineclip((int+HabAK.coef), (NMDS1.coef + NMDS.AK.coef), col=NMDS.col[2], lwd=2, 
            x1 = min(PC.NMD$NMDS1[PC.NMD$HabitatType=="Restored Forest"], na.rm=T), 
            x2 = max(PC.NMD$NMDS1[PC.NMD$HabitatType=="Restored Forest"], na.rm=T)) # AK model
 legend("topleft", c("Remnant Forest", "Restored Forest"), lty=c(1,1), lwd=c(2,2), col=NMDS.col, cex=0.8, pch=16, y.intersp = 0.5, bty="n")
@@ -535,10 +535,8 @@ AK_dist_df<-read.csv("output/AK_dist_dataframe.csv",header=T, as.is=T)
 ##############
 #Generate plots for all elevations combined
 
-RO_dist_plot<- ggplot(RO_df,aes(x=log(Distance+1), y=BrayCurtis)) + #color=Host
-  #scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
+RO_dist_plot<- ggplot(RO_df,aes(x=log(Distance+1), y=BrayCurtis)) +
   geom_point(size=1,alpha=0.5) +
-  stat_smooth(method = "lm", size = 1, se=F) +  
   theme(text=element_text(colour="black",size=12)) + 
   scale_y_continuous(name="Bray Curtis Dissimilarity",breaks=seq(0,1,0.25),limits=c(0,1)) +
   scale_x_continuous(name="log(Distance (m)+1)",breaks=seq(0,8,1),limits=c(0,8)) +
@@ -555,8 +553,7 @@ ggsave("figures/log.RO_dist_decay.pdf",
        plot = RO_dist_plot, width = 5, height = 5)
 
 
-AK_dist_plot<- ggplot(AK_df,aes(x=log(Distance+1),y=BrayCurtis))+ #color=Host
-  #scale_color_manual(values=c(A.millefolium="#0A191E",D.fruticosa="#D8B65C",F.idahoensis="#4A9878")) +
+AK_dist_plot<- ggplot(AK_df,aes(x=log(Distance+1),y=BrayCurtis)) +
   geom_point(size=1,alpha=0.5) +
   stat_smooth(method = "lm", size = 1, se=F) +  
   theme(text=element_text(colour="black",size=12)) + 
@@ -574,397 +571,4 @@ plot(AK_dist_plot)
 ggsave("figures/log.AK_dist_decay.pdf", 
        plot = AK_dist_plot, width = 5, height = 5)
 
-#Analysis of slopes
-# ALL hosts, RO soil
-RO_dist_model <- lm(BrayCurtis~poly(Distance,2,raw=TRUE),data=RO_dist_df)
-summary(RO_dist_model)
-par(mfrow = c(2,2))
-plot(RO_dist_model)
-
-# ALL hosts, AK roots
-AK_dist_model <- lm(BrayCurtis~poly(Distance,2,raw=TRUE),data=AK_dist_df)
-summary(AK_dist_model)
-par(mfrow = c(2,2))
-plot(AK_dist_model)
-
-
-#Calculate the difference in slop between overall regression lines 
-library(simba)
-diff_in_slope<-diffslope(RO_dist_df$Distance,RO_dist_df$BrayCurtis,AK_dist_df$Distance,AK_dist_df$BrayCurtis,
-                         permutations=9999)
-diff_in_slope
-
-
-
- #########################################
- ### MetaCommunity Simulations (MCSim) ###
- #########################################
-# From tutorial: http://rstudio-pubs-static.s3.amazonaws.com/159425_80725873417e42fdb13821c10a198281.html
-# -- Install the current dev version of MCSim
-install.packages("devtools")
-devtools::install_github('sokole/MCSim')
-devtools::install_github('sokole/MCSim@v0.4.1.9001')
-install.packages("MCSim"); library(MCSim)
-
-# 1. Make a "landscape"
-# The landscape is the "game board" on which the simulation plays out
-# It is created using the fn.make.landscape function. 
-# The landscape can be made from ESV_dataframe (non spatial points version).
-# When making a landscape, we have to embed additional information about the simulation in the landscape 
-# so that MCSim can keep track of site characteristics, in addition to their location. 
-# For example, m can be used to specify an immigration rate and JM can be used to specify the metacommunity 
-# size (see Hubbell 2001), where JM is the number of individual organisms that inhabit the metacommunity.
-ESV_dataframe %>% as.data.frame %>% 
-  ggplot(aes(Longitude, Latitude)) + geom_point(aes(colour=HabitatType), alpha=3/4) + 
-  scale_color_manual(values=c("#88A550","#336B87")) +
-  ggtitle("Plot Locations") + coord_equal() + theme_bw()
-
-xy.cord<-data.frame(ESV_dataframe$Longitude, ESV_dataframe$Latitude); colnames(xy.cord)<-c("Longitude", "Latitude")
-
-haka.landscape <- MCSim::fn.make.landscape(
-  site.coords = xy.cord,
-  m = 0.5,
-  JM = 1000000)
-
- ####################################
- ### Kriging and Variogram Plots ###
- ###################################
-# Taken mostly from https://rpubs.com/nabilabd/118172
-install.packages('gstat');require('gstat')
-
-# Will be working with dataframe created from phyloseq object title ESV_dataframe
-str(ESV_dataframe)
-theme_set(theme_classic())
-
-#Can do fun things like plot where sample sites were 
-ESV_dataframe %>% as.data.frame %>% 
-  ggplot(aes(Longitude, Latitude)) + geom_point(aes(colour=HabitatType), alpha=3/4) + 
-  scale_color_manual(values=c("#88A550","#336B87")) +
-  ggtitle("Plot Locations") + coord_equal() + theme_bw()
-
-### Need to convert dataframe to a spatial dataframe (SPDF)
-#To convert it to a spatial dataframe, we must first specify which of the columns contain the coordinates of the data. 
-#This is done by using R's formula notation as follows:
-coordinates(ESV_dataframe) <- ~ xCoords + yCoords
-class(ESV_dataframe)
-str(ESV_dataframe)
-
-      #############################################################
-      ### Subset dataframe to get at plot-level spatial sorting  ##
-      #############################################################
-# Remnant plots
-rem_all <- subset(ESV_dataframe, HabitatType == "Remnant Forest")
-
-rem_RO1_all <- subset(rem_all, Plot == "RO1")
-rem_RO1_koa <-subset(rem_RO1_all,Host=="Acacia koa")
-rem_RO1_cop <-subset(rem_RO1_all,Host=="Corposma rhynchocarpa")
-rem_RO1_chei <-subset(rem_RO1_all,Host=="Cheirodendron trigynum")
-rem_RO1_grass <-subset(rem_RO1_all,Host=="Grass")
-rem_RO1_ohia <- subset(rem_RO1_all,Host=="Metrosideros polymorpha")
-rem_RO1_myr <- subset(rem_RO1_all,Host=="Myrsine lessertiana")
-rem_RO1_rub <- subset(rem_RO1_all,Host=="Rubus hawaiiensis")
-
-rem_RO2_all <- subset(rem_all, Plot == "RO2")
-rem_RO2_koa <-subset(rem_RO2_all,Host=="Acacia koa")
-rem_RO2_cop <-subset(rem_RO2_all,Host=="Corposma rhynchocarpa")
-rem_RO2_chei <-subset(rem_RO2_all,Host=="Cheirodendron trigynum")
-rem_RO2_grass <-subset(rem_RO2_all,Host=="Grass")
-rem_RO2_ohia <- subset(rem_RO2_all,Host=="Metrosideros polymorpha")
-rem_RO2_myr <- subset(rem_RO2_all,Host=="Myrsine lessertiana")
-rem_RO2_rub <- subset(rem_RO2_all,Host=="Rubus hawaiiensis")
-
-rem_RO3_all <- subset(rem_all, Plot == "RO3")
-rem_RO3_koa <-subset(rem_RO3_all,Host=="Acacia koa")
-rem_RO3_cop <-subset(rem_RO3_all,Host=="Corposma rhynchocarpa")
-rem_RO3_chei <-subset(rem_RO3_all,Host=="Cheirodendron trigynum")
-rem_RO3_grass <-subset(rem_RO3_all,Host=="Grass")
-rem_RO3_ohia <- subset(rem_RO3_all,Host=="Metrosideros polymorpha")
-rem_RO3_myr <- subset(rem_RO3_all,Host=="Myrsine lessertiana")
-rem_RO3_rub <- subset(rem_RO3_all,Host=="Rubus hawaiiensis")
-
-rem_RO4_all <- subset(rem_all, Plot == "RO4")
-rem_RO4_koa <-subset(rem_RO4_all,Host=="Acacia koa")
-rem_RO4_cop <-subset(rem_RO4_all,Host=="Corposma rhynchocarpa")
-rem_RO4_chei <-subset(rem_RO4_all,Host=="Cheirodendron trigynum")
-rem_RO4_grass <-subset(rem_RO4_all,Host=="Grass")
-rem_RO4_ohia <- subset(rem_RO4_all,Host=="Metrosideros polymorpha")
-rem_RO4_myr <- subset(rem_RO4_all,Host=="Myrsine lessertiana")
-rem_RO4_rub <- subset(rem_RO4_all,Host=="Rubus hawaiiensis")
-
-rem_RO5_all <- subset(rem_all, Plot == "RO5")
-rem_RO5_koa <-subset(rem_RO5_all,Host=="Acacia koa")
-rem_RO5_cop <-subset(rem_RO5_all,Host=="Corposma rhynchocarpa")
-rem_RO5_chei <-subset(rem_RO5_all,Host=="Cheirodendron trigynum")
-rem_RO5_grass <-subset(rem_RO5_all,Host=="Grass")
-rem_RO5_ohia <- subset(rem_RO5_all,Host=="Metrosideros polymorpha")
-rem_RO5_myr <- subset(rem_RO5_all,Host=="Myrsine lessertiana")
-rem_RO5_rub <- subset(rem_RO5_all,Host=="Rubus hawaiiensis")
-
-rem_RO6_all <- subset(rem_all, Plot == "RO6")
-rem_RO6_koa <-subset(rem_RO6_all,Host=="Acacia koa")
-rem_RO6_cop <-subset(rem_RO6_all,Host=="Corposma rhynchocarpa")
-rem_RO6_chei <-subset(rem_RO6_all,Host=="Cheirodendron trigynum")
-rem_RO6_grass <-subset(rem_RO6_all,Host=="Grass")
-rem_RO6_ohia <- subset(rem_RO6_all,Host=="Metrosideros polymorpha")
-rem_RO6_myr <- subset(rem_RO6_all,Host=="Myrsine lessertiana")
-rem_RO6_rub <- subset(rem_RO6_all,Host=="Rubus hawaiiensis")
-
-# Restored plots
-rest_all <- subset(ESV_dataframe, HabitatType == "Restored Forest")
-
-rest_AK1_all <- subset(rem_all, Plot == "AK1")
-rest_AK1_koa <-subset(rest_AK1_all,Host=="Acacia koa")
-rest_AK1_cop <-subset(rest_AK1_all,Host=="Corposma rhynchocarpa")
-rest_AK1_chei <-subset(rest_AK1_all,Host=="Cheirodendron trigynum")
-rest_AK1_grass <-subset(rest_AK1_all,Host=="Grass")
-rest_AK1_ohia <- subset(rest_AK1_all,Host=="Metrosideros polymorpha")
-rest_AK1_myr <- subset(rest_AK1_all,Host=="Myrsine lessertiana")
-rest_AK1_rub <- subset(rest_AK1_all,Host=="Rubus hawaiiensis")
-
-rest_AK2_all <- subset(rem_all, Plot == "AK2")
-rest_AK2_koa <-subset(rest_AK2_all,Host=="Acacia koa")
-rest_AK2_cop <-subset(rest_AK2_all,Host=="Corposma rhynchocarpa")
-rest_AK2_chei <-subset(rest_AK2_all,Host=="Cheirodendron trigynum")
-rest_AK2_grass <-subset(rest_AK2_all,Host=="Grass")
-rest_AK2_ohia <- subset(rest_AK2_all,Host=="Metrosideros polymorpha")
-rest_AK2_myr <- subset(rest_AK2_all,Host=="Myrsine lessertiana")
-rest_AK2_rub <- subset(rest_AK2_all,Host=="Rubus hawaiiensis")
-
-rest_AK3_all <- subset(rem_all, Plot == "AK3")
-rest_AK3_koa <-subset(rest_AK3_all,Host=="Acacia koa")
-rest_AK3_cop <-subset(rest_AK3_all,Host=="Corposma rhynchocarpa")
-rest_AK3_chei <-subset(rest_AK3_all,Host=="Cheirodendron trigynum")
-rest_AK3_grass <-subset(rest_AK3_all,Host=="Grass")
-rest_AK3_ohia <- subset(rest_AK3_all,Host=="Metrosideros polymorpha")
-rest_AK3_myr <- subset(rest_AK3_all,Host=="Myrsine lessertiana")
-rest_AK3_rub <- subset(rest_AK3_all,Host=="Rubus hawaiiensis")
-
-rest_AK4_all <- subset(rem_all, Plot == "AK4")
-rest_AK4_koa <-subset(rest_AK4_all,Host=="Acacia koa")
-rest_AK4_cop <-subset(rest_AK4_all,Host=="Corposma rhynchocarpa")
-rest_AK4_chei <-subset(rest_AK4_all,Host=="Cheirodendron trigynum")
-rest_AK4_grass <-subset(rest_AK4_all,Host=="Grass")
-rest_AK4_ohia <- subset(rest_AK4_all,Host=="Metrosideros polymorpha")
-rest_AK4_myr <- subset(rest_AK4_all,Host=="Myrsine lessertiana")
-rest_AK4_rub <- subset(rest_AK4_all,Host=="Rubus hawaiiensis")
-
-rest_AK5_all <- subset(rem_all, Plot == "AK5")
-rest_AK5_koa <-subset(rest_AK5_all,Host=="Acacia koa")
-rest_AK5_cop <-subset(rest_AK5_all,Host=="Corposma rhynchocarpa")
-rest_AK5_chei <-subset(rest_AK5_all,Host=="Cheirodendron trigynum")
-rest_AK5_grass <-subset(rest_AK5_all,Host=="Grass")
-rest_AK5_ohia <- subset(rest_AK5_all,Host=="Metrosideros polymorpha")
-rest_AK5_myr <- subset(rest_AK5_all,Host=="Myrsine lessertiana")
-rest_AK5_rub <- subset(rest_AK5_all,Host=="Rubus hawaiiensis")
-
-rest_AK6_all <- subset(rem_all, Plot == "AK6")
-rest_AK6_koa <-subset(rest_AK6_all,Host=="Acacia koa")
-rest_AK6_cop <-subset(rest_AK6_all,Host=="Corposma rhynchocarpa")
-rest_AK6_chei <-subset(rest_AK6_all,Host=="Cheirodendron trigynum")
-rest_AK6_grass <-subset(rest_AK6_all,Host=="Grass")
-rest_AK6_ohia <- subset(rest_AK6_all,Host=="Metrosideros polymorpha")
-rest_AK6_myr <- subset(rest_AK6_all,Host=="Myrsine lessertiana")
-rest_AK6_rub <- subset(rest_AK6_all,Host=="Rubus hawaiiensis")
-
-       ###########################
-       #### Fitting variograms ###
-       ###########################
-        ################
-        ## Plot-level ##
-        ################
-# To perform kriging, you must first have a variogram model, from which the data can be interpolated. 
-# There are a couple steps involved:
-# Calculate the sample variogram for each plot using the variogram function.
-
-# RO1
-rem_RO1_all.vgm <- variogram(Abundance~1, rem_RO1_all) 
-rem_RO1_all.fit <- fit.variogram(rem_RO1_all.vgm, model=vgm(0.00015, "Sph", 0.0001, 1))
-
-rem_RO1_koa.vgm <- variogram(Abundance~1, rem_RO1_koa)
-rem_RO1_chei.vgm <- variogram(Abundance~1, rem_RO1_chei)
-rem_RO1_myr.vgm <- variogram(Abundance~1, rem_RO1_myr)
-rem_RO1_ohia.vgm <- variogram(Abundance~1, rem_RO1_ohia)
-rem_RO1_grass.vgm <- variogram(Abundance~1, rem_RO1_grass)
-rem_RO1_rub.vgm <- variogram(Abundance~1, rem_RO1_rub)
-
-# Combine all vgm from the same plot into a single dataframe
-RO1_host_labs<-rep(c("All","Metrosideros polymorpha","Acacia koa","Myrsine lessertiana",
-                     "Cheirodendron trigynum","Rubus hawaiiensis","Grass"),
-                   times=c(15,5,3,3,6,10,4))
-rem_RO1_vgm <- rbind(rem_RO1_all.vgm,rem_RO1_ohia.vgm,rem_RO1_koa.vgm,rem_RO1_myr.vgm,
-                     rem_RO1_chei.vgm,rem_RO1_rub.vgm,rem_RO1_grass.vgm)
-rem_RO1_vgm <- cbind(rem_RO1_vgm,RO1_host_labs)
-colnames(rem_RO1_vgm) <- c("np","dist","gamma","dir.hor","dir.ver","id","Host")
-rem_RO1_vgm$Host<- factor(rem_RO1_vgm$Host,levels=c("All","Metrosideros polymorpha", "Acacia koa", 
-                                                    "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"),
-                          labels=c("All","Metrosideros polymorpha", "Acacia koa",  
-                                   "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"))
-
-#Plot variogram results
-RO1_vgm_plot <- ggplot(rem_RO1_vgm,aes(x=dist,y=gamma)) + geom_point(alpha=0.75,size=5,aes(colour=Host)) +
-  scale_colour_manual(values=c("black","#D73027","#FC8D59","#008000","#E0F3F8","#008B8B","#4575B4")) +
-  ylab("Semivariance") + xlab("Distance")
-plot(RO1_vgm_plot)
-
-ggplot(data.frame(rem_RO1_vgm),aes(x=map.dx,y=map.dy,fill=map.z))+ 
-  geom_raster() + scale_fill_gradient() +
-  facet_grid(~Host)
-
-# RO2
-rem_RO2_all.vgm <- variogram(Abundance~1, rem_RO2_all) 
-head(rem_RO2_all.vgm)
-rem_RO2_koa.vgm <- variogram(Abundance~1, rem_RO2_koa)
-rem_RO2_chei.vgm <- variogram(Abundance~1, rem_RO2_chei)
-rem_RO2_myr.vgm <- variogram(Abundance~1, rem_RO2_myr)
-rem_RO2_ohia.vgm <- variogram(Abundance~1, rem_RO2_ohia)
-rem_RO2_grass.vgm <- variogram(Abundance~1, rem_RO2_grass)
-rem_RO2_rub.vgm <- variogram(Abundance~1, rem_RO2_rub)
-
-# Combine all vgm from the same plot into a single dataframe
-RO2_host_labs<-rep(c("All","Metrosideros polymorpha","Acacia koa","Myrsine lessertiana",
-                     "Cheirodendron trigynum","Rubus hawaiiensis","Grass"),
-                   times=c(12,5,9,5,8,1,5))
-rem_RO2_vgm <- rbind(rem_RO2_all.vgm,rem_RO2_ohia.vgm,rem_RO2_koa.vgm,rem_RO2_myr.vgm,
-                     rem_RO2_chei.vgm,rem_RO2_rub.vgm,rem_RO2_grass.vgm)
-rem_RO2_vgm <- cbind(rem_RO2_vgm,RO2_host_labs)
-colnames(rem_RO2_vgm) <- c("np","dist","gamma","dir.hor","dir.ver","id","Host")
-rem_RO2_vgm$Host<- factor(rem_RO2_vgm$Host,levels=c("All","Metrosideros polymorpha", "Acacia koa", 
-                                                    "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"),
-                          labels=c("All","Metrosideros polymorpha", "Acacia koa",  
-                                   "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"))
-
-#Plot variogram results
-RO2_vgm_plot <- ggplot(rem_RO2_vgm,aes(x=dist,y=gamma)) + geom_point(alpha=0.75,size=5,aes(colour=Host)) +
-  scale_colour_manual(values=c("black","#D73027","#FC8D59","#008000","#E0F3F8","#008B8B","#4575B4")) +
-  ylab("Semivariance") + xlab("Distance")
-plot(RO2_vgm_plot)
-
-# RO3
-rem_RO3_all.vgm <- variogram(Abundance~1, rem_RO3_all) 
-rem_RO3_koa.vgm <- variogram(Abundance~1, rem_RO3_koa)
-rem_RO3_chei.vgm <- variogram(Abundance~1, rem_RO3_chei)
-rem_RO3_myr.vgm <- variogram(Abundance~1, rem_RO3_myr)
-rem_RO3_ohia.vgm <- variogram(Abundance~1, rem_RO3_ohia)
-rem_RO3_grass.vgm <- variogram(Abundance~1, rem_RO3_grass)
-rem_RO3_rub.vgm <- variogram(Abundance~1, rem_RO3_rub)
-
-# Combine all vgm from the same plot into a single dataframe
-RO3_host_labs<-rep(c("All","Metrosideros polymorpha","Acacia koa","Myrsine lessertiana",
-                     "Cheirodendron trigynum","Rubus hawaiiensis","Grass"),
-                   times=c(15,2,4,1,5,6,4))
-rem_RO3_vgm <- rbind(rem_RO3_all.vgm,rem_RO3_ohia.vgm,rem_RO3_koa.vgm,rem_RO3_myr.vgm,
-                     rem_RO3_chei.vgm,rem_RO3_rub.vgm,rem_RO3_grass.vgm)
-rem_RO3_vgm <- cbind(rem_RO3_vgm,RO3_host_labs)
-colnames(rem_RO3_vgm) <- c("np","dist","gamma","dir.hor","dir.ver","id","Host")
-rem_RO3_vgm$Host<- factor(rem_RO3_vgm$Host,levels=c("All","Metrosideros polymorpha", "Acacia koa", 
-                                                    "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"),
-                          labels=c("All","Metrosideros polymorpha", "Acacia koa",  
-                                   "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"))
-
-#Plot variogram results
-RO3_vgm_plot <- ggplot(rem_RO3_vgm,aes(x=dist,y=gamma)) + geom_point(alpha=0.75,size=5,aes(colour=Host)) +
-  scale_colour_manual(values=c("black","#D73027","#FC8D59","#008000","#E0F3F8","#008B8B","#4575B4")) +
-  ylab("Semivariance") + xlab("Distance")
-plot(RO3_vgm_plot)
-
-# RO4
-rem_RO4_all.vgm <- variogram(Abundance~1, rem_RO4_all) 
-head(rem_RO4_all.vgm)
-rem_RO4_koa.vgm <- variogram(Abundance~1, rem_RO4_koa)
-rem_RO4_chei.vgm <- variogram(Abundance~1, rem_RO4_chei)
-rem_RO4_myr.vgm <- variogram(Abundance~1, rem_RO4_myr)
-rem_RO4_ohia.vgm <- variogram(Abundance~1, rem_RO4_ohia)
-rem_RO4_grass.vgm <- variogram(Abundance~1, rem_RO4_grass)
-rem_RO4_rub.vgm <- variogram(Abundance~1, rem_RO4_rub)
-
-# Combine all vgm from the same plot into a single dataframe
-RO4_host_labs<-rep(c("All","Metrosideros polymorpha","Acacia koa","Myrsine lessertiana",
-                     "Cheirodendron trigynum","Rubus hawaiiensis","Grass"),
-                   times=c(15,6,1,1,3,5,6))
-rem_RO4_vgm <- rbind(rem_RO4_all.vgm,rem_RO4_ohia.vgm,rem_RO4_koa.vgm,rem_RO4_myr.vgm,
-                     rem_RO4_chei.vgm,rem_RO4_rub.vgm,rem_RO4_grass.vgm)
-rem_RO4_vgm <- cbind(rem_RO4_vgm,RO4_host_labs)
-colnames(rem_RO4_vgm) <- c("np","dist","gamma","dir.hor","dir.ver","id","Host")
-rem_RO4_vgm$Host<- factor(rem_RO4_vgm$Host,levels=c("All","Metrosideros polymorpha", "Acacia koa", 
-                                                    "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"),
-                          labels=c("All","Metrosideros polymorpha", "Acacia koa",  
-                                   "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"))
-
-#Plot variogram results
-RO4_vgm_plot <- ggplot(rem_RO4_vgm,aes(x=dist,y=gamma)) + geom_point(alpha=0.75,size=5,aes(colour=Host)) +
-  scale_colour_manual(values=c("black","#D73027","#FC8D59","#008000","#E0F3F8","#008B8B","#4575B4")) +
-  ylab("Semivariance") + xlab("Distance")
-plot(RO4_vgm_plot)
-
-# RO5
-rem_RO5_all.vgm <- variogram(Abundance~1, rem_RO5_all) 
-head(rem_RO5_all.vgm)
-rem_RO5_koa.vgm <- variogram(Abundance~1, rem_RO5_koa)
-rem_RO5_chei.vgm <- variogram(Abundance~1, rem_RO5_chei)
-rem_RO5_myr.vgm <- variogram(Abundance~1, rem_RO5_myr)
-rem_RO5_ohia.vgm <- variogram(Abundance~1, rem_RO5_ohia)
-rem_RO5_grass.vgm <- variogram(Abundance~1, rem_RO5_grass)
-rem_RO5_rub.vgm <- variogram(Abundance~1, rem_RO5_rub)
-
-# Combine all vgm from the same plot into a single dataframe
-RO5_host_labs<-rep(c("All","Metrosideros polymorpha","Acacia koa","Myrsine lessertiana",
-                     "Cheirodendron trigynum","Rubus hawaiiensis","Grass"),
-                   times=c(15,1,1,1,4,4,5))
-rem_RO5_vgm <- rbind(rem_RO5_all.vgm,rem_RO5_ohia.vgm,rem_RO5_koa.vgm,rem_RO5_myr.vgm,
-                     rem_RO5_chei.vgm,rem_RO5_rub.vgm,rem_RO5_grass.vgm)
-rem_RO5_vgm <- cbind(rem_RO5_vgm,RO5_host_labs)
-colnames(rem_RO5_vgm) <- c("np","dist","gamma","dir.hor","dir.ver","id","Host")
-rem_RO5_vgm$Host<- factor(rem_RO5_vgm$Host,levels=c("All","Metrosideros polymorpha", "Acacia koa", 
-                                                    "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"),
-                          labels=c("All","Metrosideros polymorpha", "Acacia koa",  
-                                   "Myrsine lessertiana", "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"))
-
-#Plot variogram results
-RO5_vgm_plot <- ggplot(rem_RO5_vgm,aes(x=dist,y=gamma)) + geom_point(alpha=0.75,size=5,aes(colour=Host)) +
-  scale_colour_manual(values=c("black","#D73027","#FC8D59","#008000","#E0F3F8","#008B8B","#4575B4")) +
-  ylab("Semivariance") + xlab("Distance")
-plot(RO5_vgm_plot)
-
-# RO6
-rem_RO6_all.vgm <- variogram(Abundance~1, rem_RO6_all) 
-head(rem_RO6_all.vgm)
-rem_RO6_koa.vgm <- variogram(Abundance~1, rem_RO6_koa)
-rem_RO6_chei.vgm <- variogram(Abundance~1, rem_RO6_chei)
-rem_RO6_myr.vgm <- variogram(Abundance~1, rem_RO6_myr)
-rem_RO6_ohia.vgm <- variogram(Abundance~1, rem_RO6_ohia)
-rem_RO6_grass.vgm <- variogram(Abundance~1, rem_RO6_grass)
-rem_RO6_rub.vgm <- variogram(Abundance~1, rem_RO6_rub)
-
-# Combine all vgm from the same plot into a single dataframe
-RO6_host_labs<-rep(c("All","Metrosideros polymorpha","Acacia koa","Myrsine lessertiana",
-                     "Cheirodendron trigynum","Rubus hawaiiensis","Grass"),
-                   times=c(15,1,2,6,5,1,2))
-rem_RO6_vgm <- rbind(rem_RO6_all.vgm,rem_RO6_ohia.vgm,rem_RO6_koa.vgm,rem_RO6_myr.vgm,
-                     rem_RO6_chei.vgm,rem_RO6_rub.vgm,rem_RO6_grass.vgm)
-rem_RO6_vgm <- cbind(rem_RO6_vgm,RO6_host_labs)
-colnames(rem_RO6_vgm) <- c("np","dist","gamma","dir.hor","dir.ver","id","Host")
-rem_RO6_vgm$Host<- factor(rem_RO6_vgm$Host,levels=c("All","Metrosideros polymorpha", "Acacia koa", 
-                                                    "Myrsine lessertiana", 
-                                                    "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"),
-                          labels=c("All","Metrosideros polymorpha", "Acacia koa", 
-                                   "Myrsine lessertiana", 
-                                   "Cheirodendron trigynum", "Rubus hawaiiensis", "Grass"))
-
-
-#Plot variogram results
-RO6_vgm_plot <- ggplot(rem_RO6_vgm,aes(x=dist,y=gamma)) + geom_point(alpha=0.75,size=5,aes(colour=Host)) +
-  scale_colour_manual(values=c("black","#D73027","#FC8D59","#008000","#E0F3F8","#008B8B","#4575B4")) +
-  ylab("Semivariance") + xlab("Distance")
-plot(RO6_vgm_plot)
-         ###################
-         ## Habitat-level ##
-         ###################
-# Remnant forest
-remnant_vgm_df <- rbind(rem_RO1_vgm,rem_RO2_vgm,rem_RO3_vgm,rem_RO4_vgm,rem_RO5_vgm,rem_RO6_vgm)
-remnant_forest_vgm_plot <- ggplot(remnant_vgm_df,aes(x=dist,y=gamma)) + 
-  geom_point(alpha=0.75,size=5,aes(colour=Host)) +
-  ylab("Semivariance") + xlab("Distance") +
-  scale_colour_manual(values=c("black","#D73027","#FC8D59","#008000","#E0F3F8","#008B8B","#4575B4")) 
-
-plot(remnant_forest_vgm_plot)
 
