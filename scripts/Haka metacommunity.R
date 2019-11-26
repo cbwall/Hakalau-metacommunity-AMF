@@ -201,7 +201,7 @@ spec_rich_hab = plot_richness(haka_VT_soil_physeq, x ="Plot", measures="Observed
   theme(strip.text.x=element_blank(),strip.background = element_rect(fill="white")) 
 
 plot(spec_rich_hab)
-ggsave("figures/species_richness_by_plot.tiff", plot = spec_rich_hab, width=6,height=5)
+ggsave("figures/species_richness_by_plot.pdf", plot = spec_rich_hab, width=6,height=5)
 
 
 #########################################################
