@@ -242,6 +242,7 @@ soil_rich %>%
 ### Phyloseq ###
 # Bray plot
 bc_dist = as.matrix((vegdist(haka_otu, "bray")))
+set.seed(520)
 NMDS = metaMDS(bc_dist)
 NMDS1=NMDS$points[,1]
 NMDS2=NMDS$points[,2]
@@ -315,8 +316,26 @@ require(graphics)
 library(plyr)
 
 
-###############
-###############
+############### PCA
+
+df.PCA<-environmental_data
+df.PCA$sampleID<-as.factor(rownames(df.PCA))
+df.PCA$HabitatType <- substr(df.PCA$sampleID, 0, 2) # extract first 2 letters of ID
+df.PCA$Plot <- substr(df.PCA$sampleID, 3, 3)
+df.PCA$Host <- substr(df.PCA$sampleID, 4, 5)
+df.PCA<-na.omit(df.PCA)
+df.PCA$HabitatType<-revalue(df.PCA$HabitatType, c("AK"="Restored Forest", "RO"="Remnant Forest"))
+
+# remove columns unnecessary for final analysis, few factors retained
+env.PCA<-df.PCA[ , !names(df.PCA) %in% c("sampleID", "Plot", "Host", "HabitatType")]
+Hak.env.PCA <- prcomp(env.PCA, center = TRUE, scale= TRUE) # with HabitatType in dataframe
+PC.summary<-(summary(Hak.env.PCA))
+ev<-Hak.env.PCA$sdev^2
+newdat<-Hak.env.PCA$x[,1:4]
+plot(Hak.env.PCA, type="lines", main="Hak.env.PCA eigenvalues")
+
+
+############### PCA and NMDS combine
 NMDS.otu<-as.data.frame(NMDS1) # NMDS Bray Curtis of OTUs
 PCA.env<-as.data.frame(newdat) # the exported data from PCA of environment
 PC.NMD<-merge(PCA.env, NMDS.otu, by = "row.names", all = TRUE) # merge dataframes
@@ -334,16 +353,15 @@ PC.NMD$Host <- as.factor(substr(PC.NMD$sampleID, 4, 5)) # make host ID
 
 # test RO/Remnant Forest relationship
 RO.PCNMD<-PC.NMD[(PC.NMD$HabitatType=="Remnant Forest"),]
-mod.RO<-lm(PC1~NMDS1, data=RO.PCNMD); anova(mod.RO)
+mod.RO<-lm(PC1~NMDS1, data=RO.PCNMD); print(anova(mod.RO), digits=6)
 
 # test AK/Restored Forest relationship
 AK.PCNMD<-PC.NMD[(PC.NMD$HabitatType=="Restored Forest"),]
-mod.AK<-lm(PC1~NMDS1, data=AK.PCNMD); anova(mod.AK)
+mod.AK<-lm(PC1~NMDS1, data=AK.PCNMD); print(anova(mod.AK), digits=6)
 
 # full model, used in plotting
 mod<-lm(PC1~NMDS1*HabitatType, data=PC.NMD)
-anova(mod)
-
+print(anova(mod), digits=6)
 
 int<-coef(summary(mod))[1] # intercept
 NMDS1.coef<-coef(summary(mod))[2] # NMDS

@@ -562,7 +562,7 @@ AK.abund@bbox<-bbox(S) # expand binding box
 
 
 col.scheme.N <- colorRampPalette(c("white", "chartreuse3",'red'))(20)
-Grid.AK.KEY <- spsample(AK.abund, type='regular', n=1e4)
+Grid.AK.KEY <- spsample(AK.abund, type='regular', n=1e5)
 gridded(Grid.AK.KEY) <- TRUE
 
 krig.Key <- krige(Abundance ~ 1, AK.abund, Grid.AK.KEY) # ordinary kriging
@@ -589,7 +589,7 @@ plot.krig.Key<- spplot(krig.Key["var1.pred"], col.regions=colorRampPalette(col.s
 plot.krig.Key
 update(plot.krig.Key, key=simpleKey(levels(AK.abund$HabitatType), points=FALSE, columns=1,
                                     col=c("gray20", "gray70"), space='top'))
-dev.copy(png, "figures/plot.krig.Key3.png", height=500, width=600)
+dev.copy(png, "figures/plot.krig.test.png", height=500, width=600)
 dev.off()
 
 
@@ -798,14 +798,14 @@ ig.RO1_degree <- igraph::degree(ig.RO1, mode="all", normalized=TRUE)
 ig.RO2_degree <- igraph::degree(ig.RO2, mode="all", normalized=TRUE)
 ig.RO3_degree <- igraph::degree(ig.RO3, mode="all", normalized=TRUE)
 ig.RO4_degree <- igraph::degree(ig.RO4, mode="all", normalized=TRUE)
-ig.RO5_degree <- igraph::degree(ig.RO6, mode="all", normalized=TRUE)
+ig.RO5_degree <- igraph::degree(ig.RO5, mode="all", normalized=TRUE)
 ig.RO6_degree <- igraph::degree(ig.RO6, mode="all", normalized=TRUE)
 
 ig.AK1_degree <- igraph::degree(ig.AK1, mode="all", normalized=TRUE)
 ig.AK2_degree <- igraph::degree(ig.AK2, mode="all", normalized=TRUE)
 ig.AK3_degree <- igraph::degree(ig.AK3, mode="all", normalized=TRUE)
 ig.AK4_degree <- igraph::degree(ig.AK4, mode="all", normalized=TRUE)
-ig.AK5_degree <- igraph::degree(ig.AK6, mode="all", normalized=TRUE)
+ig.AK5_degree <- igraph::degree(ig.AK5, mode="all", normalized=TRUE)
 ig.AK6_degree <- igraph::degree(ig.AK6, mode="all", normalized=TRUE)
 
 haka_connectedness <- c(mean(ig.RO1_degree),mean(ig.RO2_degree),mean(ig.RO3_degree),
@@ -816,6 +816,28 @@ haka_connectedness <- c(mean(ig.RO1_degree),mean(ig.RO2_degree),mean(ig.RO3_degr
 haka_connectedness <- as.data.frame(haka_connectedness)
 
 
+## Path length average.path.length(ig.RO1)
+ig.RO1_path <- igraph::average.path.length(ig.RO1)
+ig.RO2_path <- igraph::average.path.length(ig.RO2)
+ig.RO3_path <- igraph::average.path.length(ig.RO3)
+ig.RO4_path <- igraph::average.path.length(ig.RO4)
+ig.RO5_path <- igraph::average.path.length(ig.RO5)
+ig.RO6_path <- igraph::average.path.length(ig.RO6)
+
+ig.AK1_path <- igraph::average.path.length(ig.AK1)
+ig.AK2_path <- igraph::average.path.length(ig.AK2)
+ig.AK3_path <- igraph::average.path.length(ig.AK3)
+ig.AK4_path <- igraph::average.path.length(ig.AK4)
+ig.AK5_path <- igraph::average.path.length(ig.AK5)
+ig.AK6_path <- igraph::average.path.length(ig.AK6)
+
+haka_path <- c(mean(ig.RO1_path),mean(ig.RO2_path),mean(ig.RO3_path),
+                        mean(ig.RO4_path),mean(ig.RO5_path),mean(ig.RO6_path),
+                        mean(ig.AK1_path),mean(ig.AK2_path),mean(ig.AK3_path),
+                        mean(ig.AK4_path),mean(ig.AK5_path),mean(ig.AK6_path))
+
+haka_path <- as.data.frame(haka_path)
+
 # Dataframe building
 plot<-as.data.frame(c("RO1","RO2","RO3","RO4","RO5","RO6",
                       "AK1","AK2","AK3","AK4","AK5","AK6"))
@@ -823,9 +845,20 @@ hab_type <- as.data.frame(rep(c("Remnant Forest","Restored Forest"),each=6))
 sample_type<- as.data.frame(rep(c("soil"),each=6,times=2))
 
 # add in MEAN traits for each plot, in each network
-fungal_networks <- cbind(plot,hab_type,sample_type,haka_centrality, haka_connectedness)
-colnames(fungal_networks) <- c("Plot","HabitatType","SampleType","Centrality","Connectedness")
+fungal_networks <- cbind(plot,hab_type,sample_type,haka_centrality, haka_connectedness, haka_path)
+colnames(fungal_networks) <- c("Plot","HabitatType","SampleType","Centrality","Connectedness", "Path.length")
 
+fungal_networks %>%
+    group_by(HabitatType) %>%
+    summarize(means = mean(Centrality), se= se(Centrality))
+
+fungal_networks %>%
+    group_by(HabitatType) %>%
+    summarize(means = mean(Connectedness), se= se(Connectedness))
+
+fungal_networks %>%
+    group_by(HabitatType) %>%
+    summarize(means = mean(Path.length), se= se(Path.length))
 
 ## Welch t-tests
 # Centrality by plots
@@ -840,3 +873,9 @@ connectedness_habitat <- t.test(subset(fungal_networks, HabitatType == "Remnant 
                                 paired=FALSE, var.equal=FALSE)
 connectedness_habitat
 
+
+# Path Length by plots
+path_habitat <- t.test(subset(fungal_networks, HabitatType == "Remnant Forest")$Path.length,
+                                subset(fungal_networks, HabitatType == "Restored Forest")$Path.length,
+                                paired=FALSE, var.equal=FALSE)
+path_habitat
