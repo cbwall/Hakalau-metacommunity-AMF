@@ -296,7 +296,7 @@ legend("topright", legend=levels(Habitats), cex=1, pch=16, col=groups.hab, pt.ce
 par.new=T
 plot(fit.env, col="black", p.max=0.05, cex=0.9, lwd=1)
 
-dev.copy(pdf, "figures/environm.NMDS.pdf", height=6, width=8)
+dev.copy(pdf, "figures/environm.NMDS.pdf", height=5.5, width=6)
 dev.off() 
 
 
