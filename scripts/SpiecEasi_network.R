@@ -483,7 +483,7 @@ AK.keystone.plot <- ggplot(AK.keystone,aes(x=Degree,y=Betweenness)) +
     theme(panel.border = element_blank(), panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
           panel.background=element_blank()) +
-    scale_colour_manual(values=pal, limits=GroupRO) +
+    scale_colour_manual(values=pal, limits=GroupAK) +
     guides(colour=guide_legend(override.aes=list(size=3))) +
     theme(legend.key=element_blank())+ theme(legend.text=element_text(size=8)) +
     theme(legend.key.size = unit(.4, "cm"))+
@@ -513,13 +513,95 @@ ESV_rel_abund <- transform_sample_counts(haka_VT_soil_physeq,function(x)x/sum(x)
 ESV_dataframe<-psmelt(ESV_rel_abund)
 ESV_dataframe$Abundance<- ifelse(ESV_dataframe$Abundance < 1e-5, 0, ESV_dataframe$Abundance) 
 
-Abund<-aggregate(Abundance~Species+HabitatType+Plot+TreeID+Longitude+Latitude, data=ESV_dataframe, FUN=mean)
+# make mean relative abundance for each VT at levels of interest
+Abund<-aggregate(Abundance~HabitatType+Plot+TreeID+Longitude+Latitude+Family+Genus+Species, data=ESV_dataframe, FUN=mean)
+
+# RO keystone mean relative abundance
 Abund.Claro<-Abund[(Abund$Species=="VTX00225"),] # RO
 sum(Abund.Claro$Abundance > 0) # 6 trees
 
+# AK keystone mean relative abundance
 Abund.Acaul<-Abund[(Abund$Species=="VTX00272"),] # AK 
 sum(Abund.Acaul$Abundance > 0) # 72 trees
 
+
+#### Ubiquity and Abundance plot
+ # RO phyloseq object = 212 samples
+ # AK phyloseq object = 264 samples
+
+# mean abundance across all samples, separated by habitat type
+# in each sample (tree ID) is the VT present
+Abund$Pres<-ifelse(Abund$Abundance > 0, 1, 0)
+Abund$tot.samp<-ifelse(Abund$HabitatType=="Remnant Forest", 212, 264)
+Abund$prop.sampl<-Abund$Pres/Abund$tot.samp
+
+Ubiq.tot<-aggregate(prop.sampl~HabitatType+Family+Genus+Species, data=Abund, FUN=sum) # sum of sample propor.
+colnames(Ubiq.tot)[5] <- "Ubiq"
+
+Abund.reorder<-aggregate(Abundance~HabitatType+Family+Genus+Species, data=ESV_dataframe, FUN=mean)
+colnames(Abund.reorder)[5] <- "Abund"
+
+Abund.SD<-aggregate(Abundance~HabitatType+Family+Genus+Species, data=ESV_dataframe, FUN=sd)
+colnames(Abund.SD)[5] <- "Abund.SD"
+
+Abund.Ubiq<-cbind(Abund.reorder, Abund.SD[5], Ubiq.tot[5])
+
+AbUb.RO<-Abund.Ubiq[(Abund.Ubiq$HabitatType=="Remnant Forest"),]
+AbUb.RO<-AbUb.RO[(AbUb.RO$Abund > 0),]
+
+AbUb.AK<-Abund.Ubiq[(Abund.Ubiq$HabitatType=="Restored Forest"),]
+AbUb.AK<-AbUb.AK[(AbUb.AK$Abund > 0),]
+
+RO.AbUb.plot <- ggplot(AbUb.RO,aes(x=Abund,y=Ubiq)) +
+    geom_point(aes(size=Abund.SD,colour=Family),position="jitter") +
+    ylab("Ubiquity (proporiton)") + 
+    xlab("Relative abundance") +
+    scale_x_continuous(limits=c(0,0.4), breaks=seq(0,1, by=0.2)) +
+    scale_y_continuous(limits=c(0,1), breaks=seq(0,1, by=0.2))+
+    theme(text=element_text(colour="black",size=10)) + 
+    theme(axis.text.x=element_text(hjust=1,colour="black",size=10)) +
+    theme(axis.text.y=element_text(colour="black",size=10)) +
+    theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
+          panel.background=element_blank()) +
+    scale_colour_manual(values=pal, limits=GroupRO) +
+    guides(colour=guide_legend(override.aes=list(size=3))) +
+    theme(legend.key=element_blank())+ theme(legend.text=element_text(size=8)) +
+    theme(legend.key.size = unit(.4, "cm"))+
+    ggtitle("A) Remnant Forest")
+RO.AbUb.plot
+
+AK.AbUb.plot <- ggplot(AbUb.AK,aes(x=Abund,y=Ubiq)) +
+    geom_point(aes(size=Abund.SD,colour=Family),position="jitter") +
+    ylab("") + 
+    xlab("Relative abundance") +
+    scale_x_continuous(limits=c(0,0.4), breaks=seq(0,1, by=0.2)) +
+    scale_y_continuous(limits=c(0,1), breaks=seq(0,1, by=0.2))+
+    theme(text=element_text(colour="black",size=10)) + 
+    theme(axis.text.x=element_text(hjust=1,colour="black",size=10)) +
+    theme(axis.text.y=element_text(colour="black",size=10)) +
+    theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
+          panel.background=element_blank()) +
+    scale_colour_manual(values=pal, limits=GroupAK) +
+    guides(colour=guide_legend(override.aes=list(size=3))) +
+    theme(legend.key=element_blank())+ theme(legend.text=element_text(size=8)) +
+    theme(legend.key.size = unit(.4, "cm"))+
+    ggtitle("B) Restored Forest")
+AK.AbUb.plot
+
+
+# extract legend from plot
+RO.AbUb.leg <- get_legend(
+    # create some space to the left of the legend
+    RO.AbUb.plot + theme(legend.box.margin = margin(0, 0, 0, 12)))
+
+AbUb.plots<- plot_grid(RO.AbUb.plot + theme(legend.position = "none"), 
+                         AK.AbUb.plot + theme(legend.position = "none"), 
+                     ncol=2,nrow=1)
+plot_grid(AbUb.plots, RO.AbUb.leg, rel_widths = c(3, 1)) # legend column 1/2 size as first object
+dev.copy()
+ggsave("figures/AbUb.fig.pdf", width = 8, height = 4)
 
 ##############################################################################################################
 ###### What the hell, let's Krig baby

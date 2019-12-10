@@ -424,8 +424,8 @@ dists_m<-as.dist(dists_m) # make distance matrix
 study_bc_dist = as.dist((vegdist(hak_otu, "bray"))); study_bc_mat<-as.matrix(vegdist(hak_otu, "bray"))
 
 # mantel
-mantel_test<-mantel.rtest(dists_m, study_bc_dist, nrepet=9999)
-mantel_test # significant
+study_mantel_test<-mantel.rtest(dists_m, study_bc_dist, nrepet=9999)
+study_mantel_test # significant
 
 # new dataframe
 Study.df<-data.frame(Distance=geomat[lower.tri(geomat)],
@@ -448,7 +448,7 @@ Study_dist_plot<- ggplot(Study.df, aes(x=log(Distance+1), y=BrayCurtis)) +
         panel.background=element_blank())
 
 plot(Study_dist_plot)
-ggsave("figures/log.study_dist_decay.tiff", 
+ggsave("figures/log.study_dist_decay.pdf", 
        plot = Study_dist_plot, width = 5, height = 5)
 
 
