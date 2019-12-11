@@ -294,6 +294,7 @@ V(ig.RO)$size = (V(ig.RO)$betweenness*V(ig.RO)$degree)/100
 net_tax=read.csv("data/haka_soil_taxonomy.csv", header = TRUE,row.names = 1)
 net_tax$OTU<-row.names(net_tax)
 V(ig.RO)$Family=as.character(net_tax$Family[match(V(ig.RO)$name, net_tax$OTU)])
+V(ig.RO)$Genus=as.character(net_tax$Genus[match(V(ig.RO)$name, net_tax$OTU)])
 
 # if want to set colors manually with names....
 pal<-brewer.pal(10,"Paired")
@@ -347,6 +348,7 @@ V(ig.AK)$size = (V(ig.AK)$betweenness*V(ig.AK)$degree)/100
 
 #Colour by Family
 V(ig.AK)$Family=as.character(net_tax$Family[match(V(ig.AK)$name, net_tax$OTU)])
+V(ig.AK)$Genus=as.character(net_tax$Genus[match(V(ig.AK)$name, net_tax$OTU)]) # add Genus to datafram
 
 # if want to set colors manually with names....
 V(ig.AK)$color=V(ig.AK)$Family
@@ -419,13 +421,14 @@ RO.between <- as.data.frame(V(ig.RO)$betweenness,normalized=TRUE)
 RO.degree <- as.data.frame(V(ig.RO)$degree,mode="all",normalized=TRUE)
 RO.rel.abund <- as.data.frame(V(ig.RO)$rel.abund)
 RO.fam <- as.data.frame(V(ig.RO)$Family)
+RO.gen <- as.data.frame(V(ig.RO)$Genus)
 RO.species <- as.data.frame(net_tax$Species[match(V(ig.RO)$name,net_tax$OTU)])
 RO.no.samples <- as.data.frame(V(ig.RO)$no.samples)
 sample_data(RO.physeq)
 RO.total.samples <- as.data.frame(rep(212),times=130) # 212 sample, 130 taxa
-RO.keystone <- cbind(RO.between,RO.degree,RO.rel.abund,RO.fam,RO.species,RO.no.samples,RO.total.samples)
+RO.keystone <- cbind(RO.between,RO.degree,RO.rel.abund,RO.fam, RO.gen,RO.species,RO.no.samples,RO.total.samples)
 rownames(RO.keystone) <- V(ig.RO)$name
-colnames(RO.keystone) <- c("Betweenness","Degree","RelativeAbundance","Family","Species","No.Samples","TotalSamples")
+colnames(RO.keystone) <- c("Betweenness","Degree","RelativeAbundance","Family", "Genus", "Species","No.Samples","TotalSamples")
 RO.keystone$No.Samples <- as.numeric(RO.keystone$No.Samples)
 RO.keystone$perc.samples <- RO.keystone$No.Samples / RO.keystone$TotalSamples
 RO.keystone$Prevalence <- RO.keystone$perc.samples * RO.keystone$RelativeAbundance
@@ -436,13 +439,14 @@ AK.between <- as.data.frame(V(ig.AK)$betweenness,normalized=TRUE)
 AK.degree <- as.data.frame(V(ig.AK)$degree,mode="all",normalized=TRUE)
 AK.rel.abund <- as.data.frame(V(ig.AK)$rel.abund)
 AK.fam <- as.data.frame(V(ig.AK)$Family)
+AK.gen <- as.data.frame(V(ig.AK)$Genus)
 AK.species <- as.data.frame(net_tax$Species[match(V(ig.AK)$name,net_tax$OTU)])
 AK.no.samples <- as.data.frame(V(ig.AK)$no.samples)
 sample_data(AK.physeq)
 AK.total.samples <- as.data.frame(rep(264),times=130) # 264 samples, 130 taxa
-AK.keystone <- cbind(AK.between,AK.degree,AK.rel.abund,AK.fam,AK.species,AK.no.samples,AK.total.samples)
+AK.keystone <- cbind(AK.between,AK.degree,AK.rel.abund,AK.fam,AK.gen,AK.species,AK.no.samples,AK.total.samples)
 rownames(AK.keystone) <- V(ig.AK)$name
-colnames(AK.keystone) <- c("Betweenness","Degree","RelativeAbundance","Family","Species","No.Samples","TotalSamples")
+colnames(AK.keystone) <- c("Betweenness","Degree","RelativeAbundance","Family","Genus","Species","No.Samples","TotalSamples")
 AK.keystone$No.Samples <- as.numeric(AK.keystone$No.Samples)
 AK.keystone$perc.samples <- AK.keystone$No.Samples / AK.keystone$TotalSamples
 AK.keystone$Prevalence <- AK.keystone$perc.samples * AK.keystone$RelativeAbundance
@@ -498,7 +502,7 @@ KS.legend <- get_legend(
 KS.plots<- plot_grid(RO.keystone.plot + theme(legend.position = "none"), 
                      AK.keystone.plot + theme(legend.position = "none"), 
                      ncol=2,nrow=1)
-plot_grid(KS.plots, KS.legend, rel_widths = c(2, 1)) # legend column 1/2 size as first object
+plot_grid(KS.plots, KS.legend, rel_widths = c(3, 1)) # legend column 1/3 size as first object
 dev.copy()
 ggsave("figures/keystone.fig.pdf", width = 7, height = 4)
 
@@ -523,6 +527,14 @@ sum(Abund.Claro$Abundance > 0) # 6 trees
 # AK keystone mean relative abundance
 Abund.Acaul<-Abund[(Abund$Species=="VTX00272"),] # AK 
 sum(Abund.Acaul$Abundance > 0) # 72 trees
+
+AK.key.df.plot<-aggregate(Abundance~HabitatType+Plot+Species, data=Abund.Acaul, FUN=mean)
+AK.key.dfmean<-aggregate(Abundance~HabitatType+Species, data=Abund.Acaul, FUN=mean)
+AK.key.dfsd<-aggregate(Abundance~HabitatType+Species, data=Abund.Acaul, FUN=sd)
+
+AK.key.test <- t.test(subset(AK.key.df.plot, HabitatType == "Remnant Forest")$Abundance,
+                             subset(AK.key.df, HabitatType == "Restored Forest")$Abundance,
+                             paired=FALSE, var.equal=FALSE)
 
 
 #### Ubiquity and Abundance plot
@@ -634,8 +646,8 @@ ggsave("figures/Keystone.bubble.png",width= 8,height=8, plot=Keystone.bubble)
 coordinates(AK.abund)<- ~Longitude +Latitude # coordinates for samples of interest
 AK.abund@bbox # extend of binding box
 
-Longitude<-c(-155.295, -155.335)
-Latitude<-c(19.810, 19.840)
+Longitude<-c(-155.298, -155.33)
+Latitude<-c(19.815, 19.835)
 xy<-cbind(Longitude,Latitude)
 S<-SpatialPoints(xy)
 bbox(S)
@@ -644,20 +656,19 @@ AK.abund@bbox<-bbox(S) # expand binding box
 
 
 col.scheme.N <- colorRampPalette(c("white", "chartreuse3",'red'))(20)
-Grid.AK.KEY <- spsample(AK.abund, type='regular', n=1e5)
+Grid.AK.KEY <- spsample(AK.abund, type='regular', n=1e4)
 gridded(Grid.AK.KEY) <- TRUE
 
 krig.Key <- krige(Abundance ~ 1, AK.abund, Grid.AK.KEY) # ordinary kriging
 plot(variogram(Abundance ~ 1, AK.abund)) # variogram
 
 
-
 # SP plot
 rv = list("sp.polygons", krig.Key, fill = "chartreuse3", alpha = 0.1)
-text1 = list("sp.text", c(-155.3,19.816), "0", cex = .5, which = 1)
-text2 = list("sp.text", c(-155.298,19.816), "500 m", cex = .5, which = 1)
+text1 = list("sp.text", c(-155.31,19.818), "0", cex = .5, which = 1)
+text2 = list("sp.text", c(-155.305,19.818), "100 m", cex = .5, which = 1)
 scale = list("SpatialPolygonsRescale", layout.scale.bar(), 
-             offset = c(-155.3, 19.816), scale = 500, fill=c("transparent","black"), which = 1)
+             offset = c(-155.31, 19.820), scale = 50, fill=c("transparent","black"), which = 1)
 
 # levels for overlap
 hab.cols<-c("gray20", "gray70")
@@ -666,12 +677,13 @@ levs<-as.factor(AK.abund$HabitatType)
 spl <- list('sp.points', AK.abund, cex=0.5, pch=21, col=c("gray20", "gray70")[levs])
 
 plot.krig.Key<- spplot(krig.Key["var1.pred"], col.regions=colorRampPalette(col.scheme.N), 
-                       sp.layout=spl, main="Keystone Fungal Taxa", col=NA, 
-                       scales=list(draw = TRUE))
-plot.krig.Key
-update(plot.krig.Key, key=simpleKey(levels(AK.abund$HabitatType), points=FALSE, columns=1,
-                                    col=c("gray20", "gray70"), space='top'))
-dev.copy(png, "figures/plot.krig.test.png", height=500, width=600)
+                       sp.layout=spl, col=NA, #  main="Restored Forest Keystone AM-fungi", cex.main=0.8,
+                       scales=list(draw = TRUE), xlab= "Longitude", ylab="Latitude", cex.axis=0.8)
+
+plot.krig.Key 
+update(plot.krig.Key, key=simpleKey(c("Restored Forest", "Remnant Forest"), points=FALSE, columns=1, cex.main=0.6, cex=0.8, col=c("gray70", "gray20"), space='top'))
+
+dev.copy(jpeg, "figures/plot.krig.test.jpeg", height=600, width=700)
 dev.off()
 
 
