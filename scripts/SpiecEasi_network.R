@@ -531,7 +531,7 @@ sum(Abund.Acaul$Abundance > 0) # 72 trees
 ### use geometric distance from each plot to see if keystone AK and proximity to AK effects exist
 AK.key.dist<-aggregate(Abundance~HabitatType+Plot+Species, data=Abund.Acaul, FUN=mean)
 AK.key.distSD<-aggregate(Abundance~HabitatType+Plot+Species, data=Abund.Acaul, FUN=sd)
-AK.dist.abund<-cbind(AK.key.dist, AK.key.distSD[4]); colnames(AK.dist.abund)[5]<-"Abund.SD"
+AK.dist.ab<-cbind(AK.key.dist, AK.key.distSD[4]); colnames(AK.dist.abund)[5]<-"Abund.SD"
 
 # 'g_dists_m' is distance from each plot in  a matrix (in meters)
 #  distance to nearest, mean AKs
@@ -543,20 +543,50 @@ RO5.dist<- mean(g_dists_m[c(4:6),11]) # distance from RO1 to nearest AKs
 RO6.dist<- mean(g_dists_m[c(4:6),12]) # distance from RO3 to nearest AKs
 
 dist.to.AK<-rbind(RO1.dist, RO2.dist, RO3.dist, RO4.dist, RO5.dist, RO6.dist)
-AK.dist.abund<-cbind(AK.dist.abund[c(7:12),], dist.to.AK)
+AK.dist.abund<-cbind(AK.dist.ab[c(7:12),], dist.to.AK)
 
 # test relationship of distance to nearest AK (for RO plots) and relative abundance of AK-keystone
 mod<-lm(dist.to.AK~Abundance, data=AK.dist.abund)
 summary(mod)
 anova(mod)
 
-# plot it
+
+## Try as distance of AK to RO and AK-abundance
+# 'g_dists_m' is distance from each plot in  a matrix (in meters)
+#  distance to nearest, mean AKs
+AK1.dist<- mean(g_dists_m[c(7:9),1]) # distance from AK1 to nearest ROs
+AK2.dist<- mean(g_dists_m[c(7:9),2]) # distance from AK1 to nearest ROs
+AK3.dist<- mean(g_dists_m[c(7:9),3]) # distance from AK3 to nearest ROs
+AK4.dist<- mean(g_dists_m[c(10:12),4]) # distance from AK4 to nearest ROs
+AK5.dist<- mean(g_dists_m[c(10:12),5]) # distance from AK5 to nearest ROs
+AK6.dist<- mean(g_dists_m[c(10:12),6]) # distance from AK6 to nearest ROs
+
+dist.to.RO<-rbind(AK1.dist, AK2.dist, AK3.dist, AK4.dist, AK5.dist, AK6.dist)
+RO.dist.abund<-cbind(AK.dist.ab[c(1:6),], dist.to.RO)
+
+# test relationship of distance to nearest AK (for RO plots) and relative abundance of AK-keystone
+mod<-lm(dist.to.RO~Abundance, data=RO.dist.abund)
+summary(mod)
+anova(mod)
+
+
+# plot it--abundance in RO vs. distance to AK
 plot(dist.to.AK~Abundance, data=AK.dist.abund, xlab="Mean Relative Abundance in RO plots", ylab="Mean distance to AK (m)",
      xlim=c(0,0.017), ylim=c(200, 1500), pch=21, col="black", bg="#88A550",
      main="Fungal AK-keystone species")
 abline(lm(dist.to.AK~Abundance, data=AK.dist.abund), col="forestgreen")
 text(0.004,1400, "R2=0.29, p=0.158", cex=0.9)
 dev.copy(pdf, "figures/AKkey.ROdist.fig.pdf", width = 5, height = 5)
+dev.off()
+
+
+# plot it--abundance in AK vs. distance to RO
+plot(dist.to.RO~Abundance, data=RO.dist.abund, xlab="Mean Relative Abundance in AK plots", ylab="Mean distance to RO (m)",
+     xlim=c(0,0.008), ylim=c(200, 1500), pch=21, col="black", bg="#336B87",
+     main="Fungal AK-keystone species")
+abline(lm(dist.to.RO~Abundance, data=RO.dist.abund), col="dodgerblue")
+text(0.002,1400, "R2=0.21, p=0.204", cex=0.9)
+dev.copy(pdf, "figures/AKkey.AKdist.fig.pdf", width = 5, height = 5)
 dev.off()
 
 
