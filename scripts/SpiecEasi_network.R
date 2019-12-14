@@ -528,13 +528,44 @@ sum(Abund.Claro$Abundance > 0) # 6 trees
 Abund.Acaul<-Abund[(Abund$Species=="VTX00272"),] # AK 
 sum(Abund.Acaul$Abundance > 0) # 72 trees
 
-AK.key.df.plot<-aggregate(Abundance~HabitatType+Plot+Species, data=Abund.Acaul, FUN=mean)
-AK.key.dfmean<-aggregate(Abundance~HabitatType+Species, data=Abund.Acaul, FUN=mean)
-AK.key.dfsd<-aggregate(Abundance~HabitatType+Species, data=Abund.Acaul, FUN=sd)
+### use geometric distance from each plot to see if keystone AK and proximity to AK effects exist
+AK.key.dist<-aggregate(Abundance~HabitatType+Plot+Species, data=Abund.Acaul, FUN=mean)
+AK.key.distSD<-aggregate(Abundance~HabitatType+Plot+Species, data=Abund.Acaul, FUN=sd)
+AK.dist.abund<-cbind(AK.key.dist, AK.key.distSD[4]); colnames(AK.dist.abund)[5]<-"Abund.SD"
 
-AK.key.test <- t.test(subset(AK.key.df.plot, HabitatType == "Remnant Forest")$Abundance,
+# 'g_dists_m' is distance from each plot in  a matrix (in meters)
+#  distance to nearest, mean AKs
+RO1.dist<- mean(g_dists_m[c(1:3),7]) # distance from RO1 to nearest AKs
+RO2.dist<- mean(g_dists_m[c(1:3),8]) # distance from RO1 to nearest AKs
+RO3.dist<- mean(g_dists_m[c(1:3),9]) # distance from RO3 to nearest AKs
+RO4.dist<- mean(g_dists_m[c(4:6),10]) # distance from RO1 to nearest AKs
+RO5.dist<- mean(g_dists_m[c(4:6),11]) # distance from RO1 to nearest AKs
+RO6.dist<- mean(g_dists_m[c(4:6),12]) # distance from RO3 to nearest AKs
+
+dist.to.AK<-rbind(RO1.dist, RO2.dist, RO3.dist, RO4.dist, RO5.dist, RO6.dist)
+AK.dist.abund<-cbind(AK.dist.abund[c(7:12),], dist.to.AK)
+
+# test relationship of distance to nearest AK (for RO plots) and relative abundance of AK-keystone
+mod<-lm(dist.to.AK~Abundance, data=AK.dist.abund)
+summary(mod)
+anova(mod)
+
+# plot it
+plot(dist.to.AK~Abundance, data=AK.dist.abund, xlab="Mean Relative Abundance in RO plots", ylab="Mean distance to AK (m)",
+     xlim=c(0,0.017), ylim=c(200, 1500), pch=21, col="black", bg="#88A550",
+     main="Fungal AK-keystone species")
+abline(lm(dist.to.AK~Abundance, data=AK.dist.abund), col="forestgreen")
+text(0.004,1400, "R2=0.29, p=0.158", cex=0.9)
+dev.copy(pdf, "figures/AKkey.ROdist.fig.pdf", width = 5, height = 5)
+dev.off()
+
+
+# t-test for difference in AK-key rel.abund. among habitat types
+AK.key.test <- t.test(subset(AK.key.dist, HabitatType == "Remnant Forest")$Abundance,
                              subset(AK.key.df, HabitatType == "Restored Forest")$Abundance,
                              paired=FALSE, var.equal=FALSE)
+
+
 
 
 #### Ubiquity and Abundance plot

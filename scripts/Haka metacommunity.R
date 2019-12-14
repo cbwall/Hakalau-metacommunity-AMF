@@ -107,7 +107,28 @@ write.csv(geog_dists_m,file="output/haka_dists.csv")
 
 haka_dists <- lower.tri(geog_dists_m)
 
-         
+
+### distance from plots
+# make a new dataframe
+plot.dist<-as.data.frame(haka_gps)
+plot.dist$sampleID<-as.factor(rownames(plot.dist))
+plot.dist$HabitatType <- substr(plot.dist$sampleID, 0, 2) # extract first 2 letters of ID
+plot.dist$Plot <- substr(plot.dist$sampleID, 0, 3)
+plot.dist$Host <- substr(plot.dist$sampleID, 4, 5)
+plot.dist<-na.omit(plot.dist)
+plot.dist$HabitatType<-revalue(plot.dist$HabitatType, c("AK"="Restored Forest", "RO"="Remnant Forest"))
+
+# make a mean lat-long for each plot (pooling all samples in a plot)
+plot.m.long<-aggregate(Longitude~HabitatType+Plot, data=plot.dist, FUN=mean)
+plot.m.lat<-aggregate(Latitude~HabitatType+Plot, data=plot.dist, FUN=mean)
+plot.m.dist<-cbind(plot.m.long,plot.m.lat[3])
+
+# Distance to neighboring plot in m
+g_dists_km<-earth.dist(plot.m.dist[,3:4],dist=TRUE)
+g_dists_m <- as.matrix(g_dists_km*1000)
+rownames(g_dists_m) <- c("AK1", "AK2", "AK3", "AK4", "AK5", "AK6", "RO1", "RO2", "RO3", "RO4", "RO5", "RO6")
+colnames(g_dists_m)<- t(plot.m.dist[2])
+
 
 #####################
 ### SEQUENCE DATA ###
