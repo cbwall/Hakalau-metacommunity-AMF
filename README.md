@@ -1,5 +1,7 @@
 # Hakalau-metacommunity-AMF  
 CB Wall, CP Egan, SIO Swift, NA Hynson (2020) Three decades post reforestation has not led to the reassembly of arbuscular mycorrhizal fungal communities associated with remnant primary forests. *Molecular Ecology*.  
+[![DOI](https://zenodo.org/badge/213717042.svg)](https://zenodo.org/badge/latestdoi/213717042)
+
   
 ## Background  
 **Post-disturbance reassembly of arbuscular mycorrhizal fungal communities**   
