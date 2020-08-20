@@ -204,9 +204,9 @@ Genearate maps of the Hawaiian archipelago, Hakalau National Forest Reserve, and
 
 # Load API key (confidential)
 API.key<-read.csv("data/API_Egan.csv")
-API.key<-API.key[1,1]
+API.key<-API.key[1,1] # in this csv there is 1 column "API" with the API code below it in cell 1,1.
 
-register_google(key=API.key)
+register_google(key=API.key) # register the API
 hi_map<-get_map(location=c(-157,20.5),zoom=7,maptype="satellite",color="color")
 hi_map_for_man <- ggmap(hi_map) +
   geom_point(aes(x = -155.320, y = 19.83), pch=23,colour="black",fill="red", size = 2, stroke=0.5) +
