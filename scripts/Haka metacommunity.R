@@ -456,12 +456,18 @@ colnames(forest.chem.mean)<-c("AK.mean", "RO.mean")
 
 
 #######
-## table SE for PLOT
+## table mean, n, SE for PLOT level
+
+
+sum_plot.se <- soil.chem.dup.rem[,c(-1,-3,-4)] %>% 
+  group_by(Plot) %>%
+  dplyr::summarise_each(funs(mean(., na.rm=T), n = sum(!is.na(.)), se = sd(., na.rm=T)/sqrt(sum(!is.na(.)))))
+
 se = sd(.)/sqrt(n())
 
 sum_plot.se <- soil.chem.dup.rem %>% 
   group_by(Plot) %>%
-  summarize(
+  plyr::summarize(
     OM = se(OM.per),
     Total.N = se(Total.N),
     P = se(P),
@@ -637,6 +643,8 @@ dev.off()
 # Bray PERMANOVA 
 haka.bc.adonis <- adonis(bc_dist~HabitatType, data=sample, permutations = 9999)
 haka.bc.adonis
+
+betadisper(bc_dist, sample$HabitatType)
 
 
 ######## ######## ######## ######## ######## Make environmental data as PC1 and PC2
