@@ -1,13 +1,14 @@
 # Hakalau-metacommunity-AMF  
-CB Wall, CP Egan, SIO Swift, NA Hynson (2020) *Three decades post reforestation has not led to the reassembly of arbuscular mycorrhizal fungal communities associated with remnant primary forests* *Molecular ecology*.  
+CB Wall, CP Egan, SIO Swift, NA Hynson (2020) Three decades post reforestation has not led to the reassembly of arbuscular mycorrhizal fungal communities associated with remnant primary forests. *Molecular Ecology*.  
 
 **Post-disturbance reassembly of arbuscular mycorrhizal fungal communities**  
   
 ## File Directory  
   
-**R project** = 'Hakalau metacommunity AMF.Rproj' = load the R project for all code to run from a common directory
-**R.markdown** = 'Hakalau metacommunity.Rmd' = file with all code to produce analyses
-**R.markdown.html** = 'Hakalau-metacommunity.html' = knitr product from Rmd **download, open in Chrome or other html viewer. Not directly viewable in GitHub**
+**R project** = 'Hakalau metacommunity AMF.Rproj' = load the R project for all code to run from a common directory  
+**R.markdown** = 'Hakalau metacommunity.Rmd' = file with all code to produce analyses  
+**R.markdown.html** = 'Hakalau-metacommunity.html' = knitr product from Rmd  
+**download the html open in Chrome or other html viewer. Not directly viewable in GitHub**
 
 - **data**  
   - subfolder: 'ecology data'  
