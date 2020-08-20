@@ -2,7 +2,8 @@
 CB Wall, CP Egan, SIO Swift, NA Hynson (2020) Three decades post reforestation has not led to the reassembly of arbuscular mycorrhizal fungal communities associated with remnant primary forests. *Molecular Ecology*.  
 
 **Post-disturbance reassembly of arbuscular mycorrhizal fungal communities**  
-  
+Background: Here, we leverage a large-scale reforestation project on Hawai‘i Island in the Hakalau Forest National Wildlife Refuge (hereafter, 'Hakalau') underway for over three decades to assess whether arbuscular mycorrhizal (AM) fungal communities have concurrently been restored. The reference ecosystem for this restoration project is a remnant montane native Hawaiian forest that provides critical habitat for endangered birds. We sampled soils from 12 plots within remnant and restored forest patches and characterized AM fungal communities using high throughput Illumina MiSeq DNA sequencing.  
+   
 ## File Directory  
   
 **R project** = 'Hakalau metacommunity AMF.Rproj' = load the R project for all code to run from a common directory  
